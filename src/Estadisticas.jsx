@@ -1,174 +1,183 @@
+
 // src/Estadisticas.jsx
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { 
+  BarChart, Bar, 
+  XAxis, YAxis, 
+  CartesianGrid, Tooltip, 
+  Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell, 
+  LineChart, Line 
+} from 'recharts';
 
 export default function Estadisticas() {
-  const [resumen, setResumen] = useState({ total_pacientes: 0, pacientes_activos: 0, pacientes_inactivos: 0 });
-  const [datosGenero, setDatosGenero] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const cargarDatosEstadisticos = async () => {
+    const cargarMetricasPaciente = async () => {
       try {
-        const BASE_URL = "http://localhost:8000"; // Asegúrate de colocar el puerto donde corre tu FastAPI
+        const BASE_URL = "http://localhost:8000";
+        
+        // 1. Conseguimos el token y el ID del paciente desde el almacenamiento de tu App.jsx
+        const token = localStorage.getItem("access_token"); 
+        const pacienteId = localStorage.getItem("paciente_id"); 
 
-        // Ejecutamos ambas consultas en paralelo para mejorar el rendimiento
-        const [resResumen, resGenero] = await Promise.all([
-          fetch(`${BASE_URL}/pacientes/estadisticas/resumen`),
-          fetch(`${BASE_URL}/pacientes/estadisticas/genero`)
-        ]);
-
-        if (!resResumen.ok || !resGenero.ok) {
-          throw new Error("No se pudieron recuperar los indicadores del backend.");
+        if (!token || !pacienteId) {
+          throw new Error("No se encontró una sesión activa o un ID de paciente válido.");
         }
 
-        const dataResumen = await resResumen.json();
-        const dataGenero = await resGenero.json();
+        // 2. CORRECCIÓN DE RUTA: Ajustada exactamente a tu backend de FastAPI metiendo la ID al final
+        const response = await fetch(`${BASE_URL}/dashboard/metricas-personales/${pacienteId}`, {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+});
 
-        setResumen(dataResumen);
-        setDatosGenero(dataGenero);
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error("Sesión expirada o no autorizada. Por favor, vuelva a loguearse.");
+          }
+          throw new Error("No se pudieron recuperar las métricas analíticas del servidor.");
+        }
+
+        const resultData = await response.json();
+        setData(resultData);
       } catch (err) {
-        console.error("Error cargando estadísticas:", err);
-        setError("Hubo un problema al conectar con el servidor de analíticas.");
+        console.error("Error cargando estadísticas del paciente:", err);
+        setError(err.message || "Hubo un problema al conectar con el servidor de analíticas.");
       } finally {
         setLoading(false);
       }
     };
+    
 
-    cargarDatosEstadisticos();
+    cargarMetricasPaciente();
   }, []);
 
   if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Procesando indicadores de SQLAlchemy...</div>;
-  }
-
-  if (error) {
     return (
-      <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: '#ef4444' }}>
-        <p style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠️ {error}</p>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Verifica que el servicio de FastAPI esté encendido.</p>
+      <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary, #64748b)' }}>
+        <p style={{ fontSize: '1.1rem', fontWeight: '500' }}>Procesando indicadores clínicos con SQLAlchemy...</p>
       </div>
     );
   }
 
-  // Paleta cromática para la gráfica circular
-  const COLORES_PIE = ['#3b82f6', '#ec4899', '#64748b', '#10b981'];
+  if (error) {
+    return (
+      <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: '#ef4444', backgroundColor: '#fef2f2' }}>
+        <p style={{ color: '#ef4444', fontWeight: 'bold', margin: '0 0 0.5rem 0' }}>⚠️ Error de Analíticas</p>
+        <p style={{ fontSize: '0.9rem', color: '#b91c1c', margin: 0 }}>{error}</p>
+        <p style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '0.5rem' }}>Asegúrate de que FastAPI y PostgreSQL estén corriendo correctamente.</p>
+      </div>
+    );
+  }
+
+  // Paleta cromática coordinada con la estética de Ecosalud (Teal, Cyan, Azul, Naranja, Rojo)
+  const COLORES_GRAFICOS = ['#14b8a6', '#06b6d4', '#3b82f6', '#f59e0b', '#ef4444'];
 
   return (
-    <div className="card" style={{ animation: "fadeIn 0.3s ease-in-out" }}>
-      <h2 className="card-title">📊 Módulo de Estadísticas del Ecosistema</h2>
-      <p className="card-subtitle">Indicadores de gestión de dirección y distribución demográfica de la población.</p>
-
-      {/* --- PANEL DE DIRECCIÓN: INDICADORES DE GESTIÓN (KPIs) --- */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
-        
-        <div style={{ ...kpiStyle, borderLeft: '4px solid var(--accent-teal)' }}>
-          <span style={kpiLabelStyle}>Total Histórico Registrado</span>
-          <strong style={kpiValueStyle}>{resumen.total_pacientes}</strong>
-          <span style={kpiSubStyle}>Pacientes en el ecosistema</span>
-        </div>
-
-        <div style={{ ...kpiStyle, borderLeft: '4px solid #10b981' }}>
-          <span style={kpiLabelStyle}>Pacientes Activos</span>
-          <strong style={{ ...kpiValueStyle, color: '#10b981' }}>{resumen.pacientes_activos}</strong>
-          <span style={kpiSubStyle}>Con acceso vigente al portal</span>
-        </div>
-
-        <div style={{ ...kpiStyle, borderLeft: '4px solid #ef4444' }}>
-          <span style={kpiLabelStyle}>Pacientes Inactivos</span>
-          <strong style={{ ...kpiValueStyle, color: '#ef4444' }}>{resumen.pacientes_inactivos}</strong>
-          <span style={kpiSubStyle}>Cuentas suspendidas o de baja</span>
-        </div>
-
+    <div className="card" style={{ animation: "fadeIn 0.3s ease-in-out", padding: '1.5rem' }}>
+      {/* --- ENCABEZADO DEL DASHBOARD --- */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h2 className="card-title" style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Mi Portal Clínico Analítico</h2>
+        <p className="card-subtitle" style={{ margin: '0.3rem 0 0 0', color: 'var(--text-secondary, #64748b)' }}>
+          Paciente: <strong style={{ color: 'var(--accent-teal, #0d9488)' }}>{data?.paciente_nombre}</strong> | Historial analítico de asistencias, tratamientos y tendencias de salud.
+        </p>
       </div>
 
-      {/* --- PANEL DE LA CLÍNICA: REPORTES GRÁFICOS --- */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      {/* --- REJILLA DE REPORTES GRÁFICOS --- */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
         
-        {/* Gráfico 1: Barras de distribución por género */}
+        {/* Gráfico 1: Asistencia y Estado de Citas (Donut Chart) */}
         <div style={chartContainerStyle}>
-          <h4 style={chartTitleStyle}>📊 Volumen de Pacientes por Género</h4>
-          <div style={{ width: '100%', height: 280 }}>
-            <ResponsiveContainer>
-              <BarChart data={datosGenero} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="genero" stroke="#94a3b8" style={{ fontSize: '0.8rem' }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: '0.8rem' }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="cantidad" name="Cantidad de Pacientes" fill="var(--accent-teal)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Gráfico 2: Representación Porcentual (Donut Chart) */}
-        <div style={chartContainerStyle}>
-          <h4 style={chartTitleStyle}>🍩 Representación Porcentual Demográfica</h4>
-          <div style={{ width: '100%', height: 280, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <h4 style={chartTitleStyle}> Asistencia y Estado de Citas</h4>
+          <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={datosGenero}
+                  data={data?.grafico_citas}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={5}
-                  dataKey="cantidad"
-                  nameKey="genero"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={4}
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
-                  {datosGenero.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORES_PIE[index % COLORES_PIE.length]} />
+                  {data?.grafico_citas.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORES_GRAFICOS[index % COLORES_GRAFICOS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip formatter={(value) => [`${value} Citas`, 'Volumen Total']} />
+                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '0.8rem' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-      </div>
+        {/* Gráfico 2: Balance de Medicamentos Emitidos (Bar Chart) */}
+        <div style={chartContainerStyle}>
+          <h4 style={chartTitleStyle}> Balance de Medicamentos y Recetas</h4>
+          <div style={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data?.grafico_recetas} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="estado" stroke="#94a3b8" style={{ fontSize: '0.75rem', fontWeight: '600' }} />
+                <YAxis stroke="#94a3b8" style={{ fontSize: '0.75rem' }} allowDecimals={false} />
+                <Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value} Recetas`, 'Cantidad']} />
+                <Bar dataKey="cantidad" name="Total Recetas" fill="#06b6d4" radius={[4, 4, 0, 0]}>
+                  {data?.grafico_recetas.map((entry, index) => (
+                    <Cell key={`cell-bar-${index}`} fill={entry.estado === 'VIGENTE' ? '#10b981' : entry.estado === 'CADUCADO' ? '#ef4444' : '#3b82f6'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
+        {/* Gráfico 3: Evolución Temporal de Visitas (Line Chart) - Ocupa ancho completo */}
+        <div style={{ ...chartContainerStyle, gridColumn: '1 / -1' }}>
+          <h4 style={chartTitleStyle}>Evolución Cronológica de Visitas Médicas</h4>
+          <p style={{ margin: '-0.5rem 0 1rem 0', fontSize: '0.8rem', color: '#94a3b8' }}>Tendencia temporal combinada por mes y año de atención.</p>
+          <div style={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data?.grafico_tendencia} margin={{ top: 10, right: 20, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="periodo" stroke="#94a3b8" style={{ fontSize: '0.8rem' }} />
+                <YAxis stroke="#94a3b8" style={{ fontSize: '0.8rem' }} allowDecimals={false} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
+                <Line 
+                  type="monotone" 
+                  dataKey="visitas" 
+                  name="Consultas Médicas" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3} 
+                  activeDot={{ r: 7 }} 
+                  dot={{ strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
 
-
-const kpiStyle = {
-  backgroundColor: '#f8fafc',
-  border: '1px solid var(--border-color, #e2e8f0)',
-  padding: '1.2rem',
-  borderRadius: 'var(--radius-md, 8px)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.2rem'
-};
-
-const kpiLabelStyle = {
-  fontSize: '0.85rem',
-  color: 'var(--text-secondary, #64748b)',
-  fontWeight: '500'
-};
-
-const kpiValueStyle = {
-  fontSize: '2rem',
-  color: 'var(--accent-teal, #0d9488)',
-  fontWeight: '800'
-};
-
-const kpiSubStyle = {
-  fontSize: '0.75rem',
-  color: 'var(--text-muted, #94a3b8)'
-};
-
+// --- ESTILOS COMPATIBLES CON TU INTERFAZ ---
 const chartContainerStyle = {
   border: '1px solid var(--border-color, #e2e8f0)',
   borderRadius: 'var(--radius-md, 8px)',
   padding: '1.2rem',
-  backgroundColor: '#ffffff'
+  backgroundColor: '#ffffff',
+  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
 };
 
 const chartTitleStyle = {
