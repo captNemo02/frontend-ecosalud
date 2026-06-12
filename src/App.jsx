@@ -1080,6 +1080,9 @@ function App() {
               </div>
             </div>
           )}
+          {activeTab === "estadisticas" && (
+            <Estadisticas />
+          )}
 {activeTab === "direccion" && (
             <DashboardDireccion />
           )}
