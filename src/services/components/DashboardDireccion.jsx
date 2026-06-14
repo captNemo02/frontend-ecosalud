@@ -4,6 +4,8 @@ import { Users, UserCheck, UserX, UserMinus, Loader2 } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b'];
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function DashboardDireccion() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -11,7 +13,7 @@ export default function DashboardDireccion() {
 
   useEffect(() => {
     // Reemplaza con la URL exacta de tu backend si mapeas en un puerto distinto
-    fetch('http://localhost:8000/clinica/direccion/gestion-pacientes')
+    fetch(`${API_BASE_URL}/clinica/direccion/gestion-pacientes`)
       .then((res) => {
         if (!res.ok) throw new Error('Error al conectar con el servidor analítico');
         return res.json();
@@ -107,7 +109,7 @@ export default function DashboardDireccion() {
 
       {/* 2. SECCIÓN DE GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* Gráfico 1: Composición por Género (Torta/Pie) */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-5 flex flex-col">
           <h2 className="text-lg font-bold text-gray-900 mb-1">Composición por Género</h2>

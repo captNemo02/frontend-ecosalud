@@ -1,13 +1,13 @@
 
 // src/Estadisticas.jsx
 import React, { useEffect, useState } from 'react';
-import { 
-  BarChart, Bar, 
-  XAxis, YAxis, 
-  CartesianGrid, Tooltip, 
-  Legend, ResponsiveContainer, 
-  PieChart, Pie, Cell, 
-  LineChart, Line 
+import {
+  BarChart, Bar,
+  XAxis, YAxis,
+  CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+  PieChart, Pie, Cell,
+  LineChart, Line
 } from 'recharts';
 
 export default function Estadisticas() {
@@ -18,11 +18,11 @@ export default function Estadisticas() {
   useEffect(() => {
     const cargarMetricasPaciente = async () => {
       try {
-        const BASE_URL = "http://localhost:8000";
-        
+        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
         // 1. Conseguimos el token y el ID del paciente desde el almacenamiento de tu App.jsx
-        const token = localStorage.getItem("access_token"); 
-        const pacienteId = localStorage.getItem("paciente_id"); 
+        const token = localStorage.getItem("access_token");
+        const pacienteId = localStorage.getItem("paciente_id");
 
         if (!token || !pacienteId) {
           throw new Error("No se encontró una sesión activa o un ID de paciente válido.");
@@ -30,12 +30,12 @@ export default function Estadisticas() {
 
         // 2. CORRECCIÓN DE RUTA: Ajustada exactamente a tu backend de FastAPI metiendo la ID al final
         const response = await fetch(`${BASE_URL}/dashboard/metricas-personales/${pacienteId}`, {
-  method: 'GET',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  }
-});
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
 
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
@@ -53,7 +53,7 @@ export default function Estadisticas() {
         setLoading(false);
       }
     };
-    
+
 
     cargarMetricasPaciente();
   }, []);
@@ -91,7 +91,7 @@ export default function Estadisticas() {
 
       {/* --- REJILLA DE REPORTES GRÁFICOS --- */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
-        
+
         {/* Gráfico 1: Asistencia y Estado de Citas (Donut Chart) */}
         <div style={chartContainerStyle}>
           <h4 style={chartTitleStyle}> Asistencia y Estado de Citas</h4>
@@ -152,13 +152,13 @@ export default function Estadisticas() {
                 <YAxis stroke="#94a3b8" style={{ fontSize: '0.8rem' }} allowDecimals={false} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
-                <Line 
-                  type="monotone" 
-                  dataKey="visitas" 
-                  name="Consultas Médicas" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3} 
-                  activeDot={{ r: 7 }} 
+                <Line
+                  type="monotone"
+                  dataKey="visitas"
+                  name="Consultas Médicas"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  activeDot={{ r: 7 }}
                   dot={{ strokeWidth: 2, r: 4 }}
                 />
               </LineChart>
