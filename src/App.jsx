@@ -4,27 +4,27 @@ import Estadisticas from "./Estadisticas";
 import DashboardDireccion from "./services/components/DashboardDireccion";
 
 function App() {
-  // Authentication State
+  // Estado de la autenticación y tiempo restante de sesión
   const [pacienteLogged, setPacienteLogged] = useState(null);
-  const [authTab, setAuthTab] = useState("login"); // login | register
-  const [timeLeft, setTimeLeft] = useState(0); // seconds remaining in 15-min session
+  const [authTab, setAuthTab] = useState("login");
+  const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef(null);
 
-  // Portal Navigation State
-  const [activeTab, setActiveTab] = useState("perfil"); // perfil | historial | recetas | ordenes | citas
+  // Estado de navegación del portal (pestañas activas)
+  const [activeTab, setActiveTab] = useState("perfil");
 
-  // Patient Sub-resources States
+  // Estados para almacenar la información médica y clínica
   const [historialList, setHistorialList] = useState([]);
   const [recetasList, setRecetasList] = useState([]);
   const [ordenesList, setOrdenesList] = useState([]);
   const [citasList, setCitasList] = useState([]);
   const [sedesList, setSedesList] = useState([]);
 
-  // Loaders and Alerts
+  // Estados para el control de carga y alertas de la interfaz
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  // Registration Form State
+  // Estado del formulario de registro de nuevos pacientes
   const [regData, setRegData] = useState({
     nombres: "",
     apellidos: "",
@@ -38,31 +38,31 @@ function App() {
     estado: "ACTIVO"
   });
 
-  // Login Form State
+  // Estado del formulario de login
   const [loginData, setLoginData] = useState({
     email: "",
     numero_documento: ""
   });
 
-  // Simulator State: Clinic Appointment Form
+  // Estado del simulador para la reserva de citas médicas
   const [appointmentForm, setAppointmentForm] = useState({
     sede_id: "",
     especialidad: "Medicina General",
     fecha_hora: "",
-    doctor_id: "1", // simulated doctor ID
+    doctor_id: "1",
     doctor_nombre: "Dr. Andrés Beltrán",
     motivo: "",
     notas_medicas: ""
   });
 
-  // Simulator State: Doctor Order Form
+  // Estado del simulador para la emisión de órdenes médicas
   const [orderForm, setOrderForm] = useState({
-    tipo_orden: "LABORATORIO", // LABORATORIO, IMAGENOLOGIA, ESPECIALISTA, PROCEDIMIENTO
+    tipo_orden: "LABORATORIO",
     descripcion: "",
     medico_responsable: "Dr. Marco Aurelio (Clínica ECOSALUD)"
   });
 
-  // Check login state on mount
+  // Verifica si existe una sesión activa y válida en el almacenamiento local al cargar la app
   useEffect(() => {
     const access_token = localStorage.getItem("access_token");
     const refresh_token = localStorage.getItem("refresh_token");
@@ -82,13 +82,13 @@ function App() {
         setTimeLeft(remainingTime);
         startSessionTimer(parseInt(session_expiry));
       } else {
-        handleLogout("Sesión de 15 minutos expirada.");
+        handleLogout("Sesión expirada.");
       }
     }
 
-    // Set up global event listeners for API auto-refresh failures
+    // Suscripción al evento global de expiración de sesión
     const handleSessionExpiredEvent = () => {
-      handleLogout("Su sesión ha expirado (Token de refresco inválido).");
+      handleLogout("Su sesión ha expirado.");
     };
     window.addEventListener("auth_session_expired", handleSessionExpiredEvent);
 
@@ -98,7 +98,7 @@ function App() {
     };
   }, []);
 
-  // Periodic Access Token refresh in the background (every 3 minutes)
+  // Renovación automática del token de acceso cada 3 minutos si el usuario está logueado
   useEffect(() => {
     if (!pacienteLogged) return;
 
@@ -108,17 +108,17 @@ function App() {
         try {
           const data = await apiService.refrescarToken(refresh_token);
           localStorage.setItem("access_token", data.access_token);
-          console.log("Access token renovado automáticamente en background.");
+          console.log("Access token renovado automáticamente.");
         } catch (e) {
-          console.warn("Fallo renovación en background:", e);
+          console.warn("Fallo al renovar token:", e);
         }
       }
-    }, 180000); // 3 minutes
+    }, 180000);
 
     return () => clearInterval(refreshInterval);
   }, [pacienteLogged?.id]);
 
-  // Load active tab data
+  // Carga los datos de la base de datos según la pestaña activa del portal
   useEffect(() => {
     if (pacienteLogged) {
       loadTabData();
@@ -130,6 +130,7 @@ function App() {
     setTimeout(() => setAlert(null), 5000);
   };
 
+  // Inicia el temporizador para expirar la sesión activa de forma automática
   const startSessionTimer = (expiryTimestamp) => {
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -139,11 +140,12 @@ function App() {
 
       if (remaining <= 0) {
         clearInterval(timerRef.current);
-        handleLogout("Tu sesión de 15 minutos ha expirado por seguridad.");
+        handleLogout("Su sesión ha expirado por seguridad.");
       }
     }, 1000);
   };
 
+  // Limpia los datos de sesión del almacenamiento local y redirige al login
   const handleLogout = (message = "Sesión cerrada con éxito.") => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -158,6 +160,7 @@ function App() {
     showAlert("info", message);
   };
 
+  // Procesa el formulario de inicio de sesión y guarda el token JWT
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!loginData.email || !loginData.numero_documento) {
@@ -168,8 +171,8 @@ function App() {
     setLoading(true);
     try {
       const response = await apiService.loginPaciente(loginData.email, loginData.numero_documento);
-      
-      const expiry = Date.now() + 900 * 1000; // 15 minutes in milliseconds
+
+      const expiry = Date.now() + 900 * 1000;
       localStorage.setItem("access_token", response.access_token);
       localStorage.setItem("refresh_token", response.refresh_token);
       localStorage.setItem("paciente_id", response.paciente_id.toString());
@@ -185,7 +188,7 @@ function App() {
       setTimeLeft(900);
       startSessionTimer(expiry);
       setActiveTab("perfil");
-      showAlert("success", `¡Bienvenido, ${response.nombres}! Sesión iniciada por 15 minutos.`);
+      showAlert("success", `¡Bienvenido, ${response.nombres}! Sesión iniciada.`);
     } catch (err) {
       showAlert("error", err.message || "Error de autenticación. Verifique su correo y DNI.");
     } finally {
@@ -193,6 +196,7 @@ function App() {
     }
   };
 
+  // Envía el formulario para registrar un nuevo paciente
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (!regData.nombres || !regData.apellidos || !regData.numero_documento || !regData.fecha_nacimiento || !regData.email) {
@@ -209,8 +213,7 @@ function App() {
         numero_documento: newPaciente.numero_documento
       });
       setAuthTab("login");
-      
-      // Limpiar formulario de registro
+
       setRegData({
         nombres: "",
         apellidos: "",
@@ -230,6 +233,7 @@ function App() {
     }
   };
 
+  // Carga desde la API la información de la pestaña seleccionada
   const loadTabData = async () => {
     if (!pacienteLogged) return;
     setLoading(true);
@@ -249,29 +253,25 @@ function App() {
         const ords = await apiService.getOrdenesMedicas(id);
         setOrdenesList(ords);
       } else if (activeTab === "citas") {
-        // Cargar citas y sedes para reservar
         const [citas, sedes] = await Promise.all([
           apiService.getCitasPaciente(id),
           apiService.getSedes()
         ]);
         setCitasList(citas);
         setSedesList(sedes);
-        
+
         if (sedes.length > 0 && !appointmentForm.sede_id) {
           setAppointmentForm(prev => ({ ...prev, sede_id: sedes[0].id.toString() }));
         }
       }
     } catch (err) {
       console.error(`Error loading tab ${activeTab}:`, err);
-      // We don't alert on dashboard/landing so we don't break mock fallbacks if DB is empty,
-      // but warn on console. We will use local mocks for clinical histories and recipes
-      // if they return empty to guarantee excellent visual layout.
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Doctor Order Simulation Submission ---
+  // Simula el envío de una orden médica (Módulo del Doctor)
   const handleSimulateOrderSubmit = async (e) => {
     e.preventDefault();
     if (!orderForm.descripcion) {
@@ -286,14 +286,13 @@ function App() {
         tipo_orden: orderForm.tipo_orden,
         descripcion: orderForm.descripcion,
         medico_responsable: orderForm.medico_responsable,
-        fecha_vencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] // 30 days
+        fecha_vencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
       };
 
       await apiService.crearOrdenMedica(payload);
       showAlert("success", `[Simulador Doctor] Orden Médica de ${orderForm.tipo_orden} emitida con éxito.`);
       setOrderForm(prev => ({ ...prev, descripcion: "" }));
-      
-      // Reload orders list
+
       if (activeTab === "ordenes") {
         const ords = await apiService.getOrdenesMedicas(pacienteLogged.id);
         setOrdenesList(ords);
@@ -305,7 +304,7 @@ function App() {
     }
   };
 
-  // --- Clinic Appointment Booking Submission ---
+  // Reserva una nueva cita médica en el sistema (Módulo de la Clínica)
   const handleBookAppointmentSubmit = async (e) => {
     e.preventDefault();
     if (!appointmentForm.sede_id || !appointmentForm.fecha_hora || !appointmentForm.motivo) {
@@ -316,7 +315,7 @@ function App() {
     setLoading(true);
     try {
       const payload = {
-        clinica_id: 1, // default ECOSALUD clinica ID
+        clinica_id: 1,
         sede_id: parseInt(appointmentForm.sede_id),
         paciente_id: pacienteLogged.id,
         doctor_id: parseInt(appointmentForm.doctor_id),
@@ -331,7 +330,6 @@ function App() {
       showAlert("success", "Cita médica agendada correctamente en la clínica.");
       setAppointmentForm(prev => ({ ...prev, motivo: "", fecha_hora: "", notas_medicas: "" }));
 
-      // Reload appointments list
       if (activeTab === "citas") {
         const citas = await apiService.getCitasPaciente(pacienteLogged.id);
         setCitasList(citas);
@@ -343,12 +341,14 @@ function App() {
     }
   };
 
+  // Formatea los segundos a un formato legible de minutos y segundos MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Calcula la edad en años a partir de la fecha de nacimiento
   const calcularEdad = (fechaNacimiento) => {
     if (!fechaNacimiento) return "0";
     try {
@@ -365,6 +365,7 @@ function App() {
     }
   };
 
+  // Formatea fechas generales con hora local
   const formatFecha = (fechaStr) => {
     if (!fechaStr) return "Recientemente registrado";
     try {
@@ -377,6 +378,7 @@ function App() {
     }
   };
 
+  // Formatea la fecha de las citas médicas
   const formatCitaFecha = (fechaHoraStr) => {
     if (!fechaHoraStr) return "Fecha no programada";
     try {
@@ -401,12 +403,12 @@ function App() {
     }
   };
 
-  // --- 1. AUTHENTICATION VIEW ---
+  // --- 1. VISTA DE AUTENTICACIÓN ---
   if (!pacienteLogged) {
     return (
       <div className="app-container" style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
         <div className="card" style={{ maxWidth: "520px", width: "100%", padding: "2.5rem 2rem" }}>
-          
+
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <h1 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", fontSize: "2.4rem", fontWeight: "800", textTransform: "uppercase" }}>
               ECOSALUD <span style={{ color: "var(--accent-mint)" }}>+</span>
@@ -457,7 +459,7 @@ function App() {
             </div>
           )}
 
-          {/* Login Form */}
+          {/* Formulario de Inicio de Sesión */}
           {authTab === "login" && (
             <form onSubmit={handleLoginSubmit}>
               <div className="form-group" style={{ marginBottom: "1.2rem" }}>
@@ -494,7 +496,7 @@ function App() {
             </form>
           )}
 
-          {/* Register Form */}
+          {/* Formulario de Registro */}
           {authTab === "register" && (
             <form onSubmit={handleRegisterSubmit}>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -612,25 +614,25 @@ function App() {
     );
   }
 
-  // --- 2. PACIENT PORTAL SECURED DASHBOARD ---
+  // --- 2. PANEL DEL PORTAL DEL PACIENTE (ACCESO SEGURO) ---
   return (
     <div className="app-container">
-      {/* SECURED CLIENT HEADER */}
+      {/* Cabecera del portal */}
       <header style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
-        
+
         <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", fontSize: "2rem", fontWeight: "800", textTransform: "uppercase" }}>
               ECOSALUD <span style={{ color: "var(--accent-mint)" }}>+</span>
             </h1>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              👤 Paciente: <strong style={{ color: "var(--text-primary)" }}>{pacienteLogged.nombres} {pacienteLogged.apellidos}</strong>
+              Paciente: <strong style={{ color: "var(--text-primary)" }}>{pacienteLogged.nombres} {pacienteLogged.apellidos}</strong>
             </p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            {/* SESSION COUNTDOWN BAR */}
-            <div 
+            {/* Temporizador de la sesión */}
+            <div
               style={{
                 backgroundColor: timeLeft < 60 ? "var(--error-light)" : "var(--accent-teal-light)",
                 border: `1px solid ${timeLeft < 60 ? "var(--error)" : "var(--accent-teal)"}`,
@@ -643,16 +645,16 @@ function App() {
                 color: timeLeft < 60 ? "var(--error)" : "var(--accent-teal)"
               }}
             >
-              ⏱️ Expira en: <strong style={{ fontSize: "1rem" }}>{formatTime(timeLeft)}</strong>
+              Expira en: <strong style={{ fontSize: "1rem" }}>{formatTime(timeLeft)}</strong>
             </div>
 
             <button onClick={() => handleLogout("Sesión cerrada correctamente.")} className="btn btn-danger-outline" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }}>
-              Cerrar Sesión ✕
+              Cerrar Sesión
             </button>
           </div>
         </div>
 
-        {/* PORTAL NAVIGATIONAL TABS */}
+        {/* Pestañas de navegación del portal */}
         <div className="tabs-navigation" style={{ marginTop: "1.5rem", justifyContent: "flex-start" }}>
           <button className={`tab-btn ${activeTab === "perfil" ? "active" : ""}`} onClick={() => setActiveTab("perfil")}>
             Mi Perfil
@@ -661,7 +663,7 @@ function App() {
             Historial Clínico
           </button>
           <button className={`tab-btn ${activeTab === "recetas" ? "active" : ""}`} onClick={() => setActiveTab("recetas")}>
-             Mis Recetas
+            Mis Recetas
           </button>
           <button className={`tab-btn ${activeTab === "ordenes" ? "active" : ""}`} onClick={() => setActiveTab("ordenes")}>
             Órdenes Médicas
@@ -678,21 +680,21 @@ function App() {
         </div>
       </header>
 
-      {/* PORTAL TAB LOADINGS */}
+      {/* Indicador de carga de datos */}
       {loading && (
         <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
           <div className="spinner spinner-dark" style={{ width: 36, height: 36 }}></div>
         </div>
       )}
 
-      {/* PORTAL TAB CONTENTS */}
+      {/* Contenido de la pestaña seleccionada */}
       {!loading && (
         <div className="tab-content">
-          
-          {/* TAB: MI PERFIL */}
+
+          {/* Pestaña: Mi Perfil */}
           {activeTab === "perfil" && (
             <div className="card">
-              <h2 className="card-title">👤 Datos Generales del Paciente</h2>
+              <h2 className="card-title">Datos Generales del Paciente</h2>
               <p className="card-subtitle">Consulta de información personal registrada y fecha de alta.</p>
 
               <div className="patient-profile-card">
@@ -735,20 +737,13 @@ function App() {
                   </span>
                 </div>
               </div>
-
-              <div style={{ marginTop: "2rem", backgroundColor: "var(--bg-primary)", padding: "1.2rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)" }}>
-                <h4 style={{ color: "var(--accent-teal)", marginBottom: "0.5rem" }}>🔒 Seguridad de la Sesión</h4>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                  Este portal implementa especificaciones de SOA con tokens de sesión JWT. Por tu seguridad, el token de refresco tiene una vida útil inamovible de exactamente <strong>15 minutos</strong>. Después de este tiempo, la sesión se destruirá en el servidor y serás redirigido al login de manera automática.
-                </p>
-              </div>
             </div>
           )}
 
-          {/* TAB: MI HISTORIAL CLINICO */}
+          {/* Pestaña: Mi Historial Clínico */}
           {activeTab === "historial" && (
             <div className="card">
-              <h2 className="card-title">📋 Mi Historial Clínico Digital</h2>
+              <h2 className="card-title">Mi Historial Clínico Digital</h2>
               <p className="card-subtitle">Cronología detallada de tus diagnósticos y atenciones médicas en ECOSALUD.</p>
 
               <div className="timeline-container">
@@ -769,16 +764,16 @@ function App() {
                               {item.tipo_registro}
                             </span>
                           </div>
-                          <span className="timeline-date">📅 {item.fecha_evento}</span>
+                          <span className="timeline-date">Fecha: {item.fecha_evento}</span>
                         </div>
-                        
+
                         <p className="timeline-description">{item.descripcion}</p>
-                        
+
                         <div className="timeline-meta">
                           <span>Médico Responsable: <strong className="timeline-doctor">{item.medico_responsable}</strong></span>
                           {item.documento_adjunto_url && (
                             <a href={item.documento_adjunto_url} target="_blank" rel="noreferrer" className="timeline-attachment">
-                              📎 Ver Resultados / Adjunto
+                              Ver Resultados / Adjunto
                             </a>
                           )}
                         </div>
@@ -790,10 +785,10 @@ function App() {
             </div>
           )}
 
-          {/* TAB: MIS RECETAS */}
+          {/* Pestaña: Mis Recetas */}
           {activeTab === "recetas" && (
             <div className="card">
-              <h2 className="card-title">💊 Mis Recetas Médicas</h2>
+              <h2 className="card-title">Mis Recetas Médicas</h2>
               <p className="card-subtitle">Listado de tratamientos prescritos y vigencia de recetas para adquisición en farmacia.</p>
 
               {recetasList.length === 0 ? (
@@ -803,7 +798,7 @@ function App() {
                   {recetasList.map((receta) => {
                     const vencido = receta.fecha_vencimiento && new Date(receta.fecha_vencimiento) < new Date();
                     const badgeClass = vencido ? "badge-vencido" : (receta.estado === "VIGENTE" ? "badge-vigente" : "badge-pendiente");
-                    
+
                     return (
                       <div key={receta.id} className="recipe-card">
                         <div>
@@ -813,7 +808,7 @@ function App() {
                               {vencido ? "Vencido" : receta.estado}
                             </span>
                           </div>
-                          
+
                           <div className="recipe-info">
                             <div className="recipe-detail">
                               <strong>Dosis:</strong> {receta.dosis || "No especificada"}
@@ -845,15 +840,15 @@ function App() {
             </div>
           )}
 
-          {/* TAB: ORDENES MEDICAS (With simulating form) */}
+          {/* Pestaña: Órdenes Médicas */}
           {activeTab === "ordenes" && (
             <div className="card">
-              <h2 className="card-title">🔬 Mis Órdenes Médicas</h2>
+              <h2 className="card-title">Mis Órdenes Médicas</h2>
               <p className="card-subtitle">Consulta de solicitudes de análisis, exámenes de imágenes e interconsultas.</p>
 
               <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1.2fr", gap: "2rem" }}>
-                
-                {/* Orders List */}
+
+                {/* Lista de órdenes */}
                 <div>
                   <h3 className="card-title" style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>Órdenes Médicas Activas</h3>
                   {ordenesList.length === 0 ? (
@@ -861,8 +856,8 @@ function App() {
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                       {ordenesList.map((ord) => (
-                        <div 
-                          key={ord.id} 
+                        <div
+                          key={ord.id}
                           style={{
                             border: "1px solid var(--border-color)",
                             borderRadius: "var(--radius-md)",
@@ -887,9 +882,9 @@ function App() {
                   )}
                 </div>
 
-                {/* Doctor simulator block */}
+                {/* Bloque del simulador de doctor */}
                 <div style={{ backgroundColor: "#f8fafc", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: "1.5rem" }}>
-                  <h4 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", marginBottom: "0.5rem" }}>🩺 Simulador Módulo Doctor</h4>
+                  <h4 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", marginBottom: "0.5rem" }}>Simulador Módulo Doctor</h4>
                   <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
                     Este formulario simula el consumo del servicio `POST /doctor/orden-medica` que usaría el consultorio del médico para emitir órdenes a tu perfil.
                   </p>
@@ -942,15 +937,15 @@ function App() {
             </div>
           )}
 
-          {/* TAB: MIS CITAS (With booking form) */}
+          {/* Pestaña: Mis Citas */}
           {activeTab === "citas" && (
             <div className="card">
-              <h2 className="card-title">📅 Mis Citas Médicas</h2>
+              <h2 className="card-title">Mis Citas Médicas</h2>
               <p className="card-subtitle">Consulta de citas agendadas y reservas de nuevas citas de atención.</p>
 
               <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1.2fr", gap: "2rem" }}>
-                
-                {/* List of Citas */}
+
+                {/* Lista de citas */}
                 <div>
                   <h3 className="card-title" style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>Próximas Citas Agendadas</h3>
                   {citasList.length === 0 ? (
@@ -960,10 +955,10 @@ function App() {
                       {citasList.map((cita) => {
                         const dateStr = formatCitaFecha(cita.fecha_hora);
                         const timeStr = formatCitaHora(cita.fecha_hora);
-                        
+
                         return (
-                          <div 
-                            key={cita.id} 
+                          <div
+                            key={cita.id}
                             style={{
                               border: "1px solid var(--border-color)",
                               borderRadius: "var(--radius-md)",
@@ -980,7 +975,7 @@ function App() {
                                 Dr. {cita.doctor_nombre || "Ecosalud Asignado"}
                               </div>
                               <div style={{ fontSize: "0.92rem", color: "var(--text-primary)", fontWeight: 500, margin: "2px 0" }}>
-                               {dateStr} - {timeStr} ({cita.duracion_minutos} min)
+                                {dateStr} - {timeStr} ({cita.duracion_minutos} min)
                               </div>
                               <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                                 Motivo: "{cita.motivo || "Consulta rutinaria"}"
@@ -997,15 +992,15 @@ function App() {
                   )}
                 </div>
 
-                {/* Appointment Booking Form */}
+                {/* Formulario de reserva de cita */}
                 <div style={{ backgroundColor: "#f8fafc", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: "1.5rem" }}>
-                  <h4 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", marginBottom: "0.5rem" }}>📝 Solicitar Nueva Cita</h4>
+                  <h4 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", marginBottom: "0.5rem" }}>Solicitar Nueva Cita</h4>
                   <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
                     Reserva tu cita médica consumiendo directamente el servicio `POST /clinica/cita` del backend.
                   </p>
 
                   <form onSubmit={handleBookAppointmentSubmit}>
-                    
+
                     <div className="form-group" style={{ marginBottom: "0.8rem" }}>
                       <label style={{ fontSize: "0.8rem" }}>Clínica / Sede *</label>
                       <select
@@ -1044,8 +1039,8 @@ function App() {
                             "3": "Dr. Alberto Fujimoto (Cirugía General)",
                             "4": "Dr. Emilio Vargas (Geriatría)"
                           };
-                          setAppointmentForm({ 
-                            ...appointmentForm, 
+                          setAppointmentForm({
+                            ...appointmentForm,
                             doctor_id: e.target.value,
                             doctor_nombre: docNames[e.target.value]
                           });
@@ -1083,7 +1078,7 @@ function App() {
           {activeTab === "estadisticas" && (
             <Estadisticas />
           )}
-{activeTab === "direccion" && (
+          {activeTab === "direccion" && (
             <DashboardDireccion />
           )}
         </div>

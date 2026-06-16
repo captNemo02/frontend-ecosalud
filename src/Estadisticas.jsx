@@ -69,7 +69,7 @@ export default function Estadisticas() {
   if (error) {
     return (
       <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: '#ef4444', backgroundColor: '#fef2f2' }}>
-        <p style={{ color: '#ef4444', fontWeight: 'bold', margin: '0 0 0.5rem 0' }}>⚠️ Error de Analíticas</p>
+        <p style={{ color: '#ef4444', fontWeight: 'bold', margin: '0 0 0.5rem 0' }}> Error de Analíticas</p>
         <p style={{ fontSize: '0.9rem', color: '#b91c1c', margin: 0 }}>{error}</p>
         <p style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '0.5rem' }}>Asegúrate de que FastAPI y PostgreSQL estén corriendo correctamente.</p>
       </div>
