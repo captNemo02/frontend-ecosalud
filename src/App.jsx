@@ -631,23 +631,6 @@ function App() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            {/* Temporizador de la sesión */}
-            <div
-              style={{
-                backgroundColor: timeLeft < 60 ? "var(--error-light)" : "var(--accent-teal-light)",
-                border: `1px solid ${timeLeft < 60 ? "var(--error)" : "var(--accent-teal)"}`,
-                padding: "0.4rem 0.8rem",
-                borderRadius: "var(--radius-sm)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.85rem",
-                color: timeLeft < 60 ? "var(--error)" : "var(--accent-teal)"
-              }}
-            >
-              Expira en: <strong style={{ fontSize: "1rem" }}>{formatTime(timeLeft)}</strong>
-            </div>
-
             <button onClick={() => handleLogout("Sesión cerrada correctamente.")} className="btn btn-danger-outline" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }}>
               Cerrar Sesión
             </button>
