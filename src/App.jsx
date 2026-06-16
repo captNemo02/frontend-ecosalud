@@ -4,11 +4,9 @@ import Estadisticas from "./Estadisticas";
 import DashboardDireccion from "./services/components/DashboardDireccion";
 
 function App() {
-  // Estado de la autenticación y tiempo restante de sesión
+  // Estado de la autenticación
   const [pacienteLogged, setPacienteLogged] = useState(null);
   const [authTab, setAuthTab] = useState("login");
-  const [timeLeft, setTimeLeft] = useState(0);
-  const timerRef = useRef(null);
 
   // Estado de navegación del portal (pestañas activas)
   const [activeTab, setActiveTab] = useState("perfil");
@@ -52,7 +50,7 @@ function App() {
     doctor_id: "1",
     doctor_nombre: "Dr. Andrés Beltrán",
     motivo: "",
-    notas_medicas: ""
+    notes_medicas: ""
   });
 
   // Estado del simulador para la emisión de órdenes médicas
@@ -62,28 +60,20 @@ function App() {
     medico_responsable: "Dr. Marco Aurelio (Clínica ECOSALUD)"
   });
 
-  // Verifica si existe una sesión activa y válida en el almacenamiento local al cargar la app
+  // Verifica si existe una sesión activa en el almacenamiento local al cargar la app
   useEffect(() => {
     const access_token = localStorage.getItem("access_token");
     const refresh_token = localStorage.getItem("refresh_token");
     const id = localStorage.getItem("paciente_id");
     const nombres = localStorage.getItem("paciente_nombres");
     const apellidos = localStorage.getItem("paciente_apellidos");
-    const session_expiry = localStorage.getItem("session_expiry");
 
-    if (access_token && refresh_token && id && session_expiry) {
-      const remainingTime = Math.floor((parseInt(session_expiry) - Date.now()) / 1000);
-      if (remainingTime > 0) {
-        setPacienteLogged({
-          id: parseInt(id),
-          nombres,
-          apellidos
-        });
-        setTimeLeft(remainingTime);
-        startSessionTimer(parseInt(session_expiry));
-      } else {
-        handleLogout("Sesión expirada.");
-      }
+    if (access_token && refresh_token && id) {
+      setPacienteLogged({
+        id: parseInt(id),
+        nombres,
+        apellidos
+      });
     }
 
     // Suscripción al evento global de expiración de sesión
@@ -94,7 +84,6 @@ function App() {
 
     return () => {
       window.removeEventListener("auth_session_expired", handleSessionExpiredEvent);
-      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
@@ -130,21 +119,6 @@ function App() {
     setTimeout(() => setAlert(null), 5000);
   };
 
-  // Inicia el temporizador para expirar la sesión activa de forma automática
-  const startSessionTimer = (expiryTimestamp) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-
-    timerRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((expiryTimestamp - Date.now()) / 1000));
-      setTimeLeft(remaining);
-
-      if (remaining <= 0) {
-        clearInterval(timerRef.current);
-        handleLogout("Su sesión ha expirado por seguridad.");
-      }
-    }, 1000);
-  };
-
   // Limpia los datos de sesión del almacenamiento local y redirige al login
   const handleLogout = (message = "Sesión cerrada con éxito.") => {
     localStorage.removeItem("access_token");
@@ -152,11 +126,8 @@ function App() {
     localStorage.removeItem("paciente_id");
     localStorage.removeItem("paciente_nombres");
     localStorage.removeItem("paciente_apellidos");
-    localStorage.removeItem("session_expiry");
 
-    if (timerRef.current) clearInterval(timerRef.current);
     setPacienteLogged(null);
-    setTimeLeft(0);
     showAlert("info", message);
   };
 
@@ -172,21 +143,17 @@ function App() {
     try {
       const response = await apiService.loginPaciente(loginData.email, loginData.numero_documento);
 
-      const expiry = Date.now() + 900 * 1000;
       localStorage.setItem("access_token", response.access_token);
       localStorage.setItem("refresh_token", response.refresh_token);
       localStorage.setItem("paciente_id", response.paciente_id.toString());
       localStorage.setItem("paciente_nombres", response.nombres);
       localStorage.setItem("paciente_apellidos", response.apellidos);
-      localStorage.setItem("session_expiry", expiry.toString());
 
       setPacienteLogged({
         id: response.paciente_id,
         nombres: response.nombres,
         apellidos: response.apellidos
       });
-      setTimeLeft(900);
-      startSessionTimer(expiry);
       setActiveTab("perfil");
       showAlert("success", `¡Bienvenido, ${response.nombres}! Sesión iniciada.`);
     } catch (err) {
