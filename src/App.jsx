@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { apiService } from "./services/api";
 import Estadisticas from "./Estadisticas";
 import DashboardDireccion from "./services/components/DashboardDireccion";
+import RecordatorioModal from "./RecordatorioModal";
+import Recetas from "./Recetas";
 
 function App() {
   // Estado de la autenticación
@@ -17,6 +19,8 @@ function App() {
   const [ordenesList, setOrdenesList] = useState([]);
   const [citasList, setCitasList] = useState([]);
   const [sedesList, setSedesList] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [appointmentData, setAppointmentData] = useState(null);
 
   // Estados para el control de carga y alertas de la interfaz
   const [loading, setLoading] = useState(false);
@@ -735,59 +739,10 @@ function App() {
             </div>
           )}
 
-          {/* Pestaña: Mis Recetas */}
+     
+          {/* TAB: MIS RECETAS */}
           {activeTab === "recetas" && (
-            <div className="card">
-              <h2 className="card-title">Mis Recetas Médicas</h2>
-              <p className="card-subtitle">Listado de tratamientos prescritos y vigencia de recetas para adquisición en farmacia.</p>
-
-              {recetasList.length === 0 ? (
-                <div className="no-data">No tienes recetas médicas emitidas a la fecha.</div>
-              ) : (
-                <div className="recipes-grid">
-                  {recetasList.map((receta) => {
-                    const vencido = receta.fecha_vencimiento && new Date(receta.fecha_vencimiento) < new Date();
-                    const badgeClass = vencido ? "badge-vencido" : (receta.estado === "VIGENTE" ? "badge-vigente" : "badge-pendiente");
-
-                    return (
-                      <div key={receta.id} className="recipe-card">
-                        <div>
-                          <div className="recipe-header">
-                            <span className="recipe-medication">{receta.medicamento}</span>
-                            <span className={`badge ${badgeClass}`}>
-                              {vencido ? "Vencido" : receta.estado}
-                            </span>
-                          </div>
-
-                          <div className="recipe-info">
-                            <div className="recipe-detail">
-                              <strong>Dosis:</strong> {receta.dosis || "No especificada"}
-                            </div>
-                            <div className="recipe-detail">
-                              <strong>Duración:</strong> {receta.duracion || "No especificada"}
-                            </div>
-                            {receta.indicaciones && (
-                              <div className="recipe-detail" style={{ fontStyle: "italic", fontSize: "0.82rem", marginTop: "4px" }}>
-                                "{receta.indicaciones}"
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="recipe-footer">
-                          <span>Emisión: {receta.fecha_emision}</span>
-                          {receta.fecha_vencimiento && (
-                            <span style={{ color: vencido ? "var(--error)" : "inherit", fontWeight: vencido ? 600 : "inherit" }}>
-                              Vence: {receta.fecha_vencimiento}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <Recetas recetasList={recetasList} />
           )}
 
           {/* Pestaña: Órdenes Médicas */}
@@ -1031,6 +986,14 @@ function App() {
           {activeTab === "direccion" && (
             <DashboardDireccion />
           )}
+          {/* 👇 INYECTA EL MODAL AQUÍ ABAJO: */}
+          <RecordatorioModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            data={appointmentData} 
+          />
+
+          
         </div>
       )}
     </div>
