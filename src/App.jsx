@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { apiService } from "./services/api";
 import Estadisticas from "./Estadisticas";
 import DashboardDireccion from "./services/components/DashboardDireccion";
+import RecordatorioModal from "./RecordatorioModal";
+import Recetas from "./recetas";
 
 function App() {
   // Estado de la autenticación
@@ -17,6 +19,9 @@ function App() {
   const [ordenesList, setOrdenesList] = useState([]);
   const [citasList, setCitasList] = useState([]);
   const [sedesList, setSedesList] = useState([]);
+  const [doctoresList, setDoctoresList] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [appointmentData, setAppointmentData] = useState(null);
 
   // Estados para el control de carga y alertas de la interfaz
   const [loading, setLoading] = useState(false);
@@ -219,17 +224,30 @@ function App() {
       } else if (activeTab === "ordenes") {
         const ords = await apiService.getOrdenesMedicas(id);
         setOrdenesList(ords);
+      } else if (activeTab === "ordenes2") {
+        const ords = await apiService.getOrdenesMedicas(id);
+        setOrdenesList(ords);
       } else if (activeTab === "citas") {
-        const [citas, sedes] = await Promise.all([
+        const [citas, sedes, doctores] = await Promise.all([
           apiService.getCitasPaciente(id),
-          apiService.getSedes()
+          apiService.getSedes(),
+          apiService.getDoctoresActivos()
         ]);
         setCitasList(citas);
         setSedesList(sedes);
+        setDoctoresList(doctores);
 
-        if (sedes.length > 0 && !appointmentForm.sede_id) {
-          setAppointmentForm(prev => ({ ...prev, sede_id: sedes[0].id.toString() }));
-        }
+        setAppointmentForm(prev => {
+          let updated = { ...prev };
+          if (sedes.length > 0 && !prev.sede_id) {
+            updated.sede_id = sedes[0].id.toString();
+          }
+          if (doctores.length > 0 && (!prev.doctor_id || prev.doctor_id === "1")) {
+            updated.doctor_id = doctores[0].id.toString();
+            updated.doctor_nombre = `Dr(a). ${doctores[0].nombres} ${doctores[0].apellidos} (${doctores[0].especialidad})`;
+          }
+          return updated;
+        });
       }
     } catch (err) {
       console.error(`Error loading tab ${activeTab}:`, err);
@@ -279,6 +297,13 @@ function App() {
       return;
     }
 
+    const selectedDate = new Date(appointmentForm.fecha_hora);
+    const currentDate = new Date();
+    if (selectedDate <= currentDate) {
+      showAlert("error", "No se puede agendar citas en fechas u horas pasadas.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -286,11 +311,9 @@ function App() {
         sede_id: parseInt(appointmentForm.sede_id),
         paciente_id: pacienteLogged.id,
         doctor_id: parseInt(appointmentForm.doctor_id),
-        fecha_hora: new Date(appointmentForm.fecha_hora).toISOString(),
+        fecha_hora: selectedDate.toISOString(),
         duracion_minutos: 30,
-        motivo: appointmentForm.motivo,
-        estado: "AGENDADA",
-        notas_medicas: appointmentForm.notas_medicas || null
+        motivo: appointmentForm.motivo
       };
 
       await apiService.crearCita(payload);
@@ -303,6 +326,29 @@ function App() {
       }
     } catch (err) {
       showAlert("error", "Error al registrar la cita médica: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cancela una cita en el sistema (Módulo de la Clínica)
+  const handleCancelAppointment = async (citaId) => {
+    if (!window.confirm("¿Está seguro de que desea cancelar esta cita?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await apiService.cancelarCita(citaId);
+      showAlert("success", "Cita cancelada correctamente.");
+      
+      // Volver a cargar las citas
+      if (activeTab === "citas") {
+        const citas = await apiService.getCitasPaciente(pacienteLogged.id);
+        setCitasList(citas);
+      }
+    } catch (err) {
+      showAlert("error", "Error al cancelar la cita médica: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -618,6 +664,9 @@ function App() {
           <button className={`tab-btn ${activeTab === "ordenes" ? "active" : ""}`} onClick={() => setActiveTab("ordenes")}>
             Órdenes Médicas
           </button>
+          <button className={`tab-btn ${activeTab === "ordenes2" ? "active" : ""}`} onClick={() => setActiveTab("ordenes2")}>
+            Órdenes Médicas 2
+          </button>
           <button className={`tab-btn ${activeTab === "citas" ? "active" : ""}`} onClick={() => setActiveTab("citas")}>
             Mis Citas
           </button>
@@ -755,68 +804,13 @@ function App() {
                     Ver Resultados / Adjunto
                   </a>
                 )}
-              </div>
+                 </div>
             </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
-          
-          {/* Pestaña: Mis Recetas */}
+          )}
+
+          {/* TAB: MIS RECETAS */}
           {activeTab === "recetas" && (
-            <div className="card">
-              <h2 className="card-title">Mis Recetas Médicas</h2>
-              <p className="card-subtitle">Listado de tratamientos prescritos y vigencia de recetas para adquisición en farmacia.</p>
-
-              {recetasList.length === 0 ? (
-                <div className="no-data">No tienes recetas médicas emitidas a la fecha.</div>
-              ) : (
-                <div className="recipes-grid">
-                  {recetasList.map((receta) => {
-                    const vencido = receta.fecha_vencimiento && new Date(receta.fecha_vencimiento) < new Date();
-                    const badgeClass = vencido ? "badge-vencido" : (receta.estado === "VIGENTE" ? "badge-vigente" : "badge-pendiente");
-
-                    return (
-                      <div key={receta.id} className="recipe-card">
-                        <div>
-                          <div className="recipe-header">
-                            <span className="recipe-medication">{receta.medicamento}</span>
-                            <span className={`badge ${badgeClass}`}>
-                              {vencido ? "Vencido" : receta.estado}
-                            </span>
-                          </div>
-
-                          <div className="recipe-info">
-                            <div className="recipe-detail">
-                              <strong>Dosis:</strong> {receta.dosis || "No especificada"}
-                            </div>
-                            <div className="recipe-detail">
-                              <strong>Duración:</strong> {receta.duracion || "No especificada"}
-                            </div>
-                            {receta.indicaciones && (
-                              <div className="recipe-detail" style={{ fontStyle: "italic", fontSize: "0.82rem", marginTop: "4px" }}>
-                                "{receta.indicaciones}"
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="recipe-footer">
-                          <span>Emisión: {receta.fecha_emision}</span>
-                          {receta.fecha_vencimiento && (
-                            <span style={{ color: vencido ? "var(--error)" : "inherit", fontWeight: vencido ? 600 : "inherit" }}>
-                              Vence: {receta.fecha_vencimiento}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <Recetas recetasList={recetasList} />
           )}
 
           {/* Pestaña: Órdenes Médicas */}
@@ -915,67 +909,43 @@ function App() {
               </div>
             </div>
           )}
+       {/* Pestaña: Órdenes Médicas 2 */}     
+{activeTab === "ordenes2" && (
+  <div className="card">
+    <h2 className="card-title">Órdenes Médicas 2</h2>
+    <p className="card-subtitle">
+      Órdenes médicas provenientes del servicio Doctor.
+    </p>
 
+    {ordenesList.length === 0 ? (
+      <div className="no-data">No hay órdenes médicas registradas.</div>
+    ) : (
+      ordenesList.map((orden, index) => (
+        <div key={orden.id || index} className="order-card">
+          <p><strong>Paciente ID:</strong> {orden.paciente_id}</p>
+          <p><strong>Tipo:</strong> {orden.tipo_orden}</p>
+          <p><strong>Descripción:</strong> {orden.descripcion || orden.detalle}</p>
+          <p><strong>Médico:</strong> {orden.medico_responsable || orden.doctor_id}</p>
+          <p><strong>Vencimiento:</strong> {orden.fecha_vencimiento}</p>
+          <p><strong>Estado:</strong> {orden.estado || "Pendiente"}</p>
+        </div>
+      ))
+    )}
+  </div>
+)}
           {/* Pestaña: Mis Citas */}
           {activeTab === "citas" && (
             <div className="card">
               <h2 className="card-title">Mis Citas Médicas</h2>
               <p className="card-subtitle">Consulta de citas agendadas y reservas de nuevas citas de atención.</p>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1.2fr", gap: "2rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.8fr", gap: "2rem" }}>
 
-                {/* Lista de citas */}
-                <div>
-                  <h3 className="card-title" style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>Próximas Citas Agendadas</h3>
-                  {citasList.length === 0 ? (
-                    <div className="no-data" style={{ padding: "3rem" }}>No se registran citas agendadas en ECOSALUD.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-                      {citasList.map((cita) => {
-                        const dateStr = formatCitaFecha(cita.fecha_hora);
-                        const timeStr = formatCitaHora(cita.fecha_hora);
-
-                        return (
-                          <div
-                            key={cita.id}
-                            style={{
-                              border: "1px solid var(--border-color)",
-                              borderRadius: "var(--radius-md)",
-                              padding: "1.2rem",
-                              backgroundColor: "#ffffff",
-                              boxShadow: "var(--shadow-sm)",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center"
-                            }}
-                          >
-                            <div>
-                              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--accent-teal)" }}>
-                                Dr. {cita.doctor_nombre || "Ecosalud Asignado"}
-                              </div>
-                              <div style={{ fontSize: "0.92rem", color: "var(--text-primary)", fontWeight: 500, margin: "2px 0" }}>
-                                {dateStr} - {timeStr} ({cita.duracion_minutos} min)
-                              </div>
-                              <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                                Motivo: "{cita.motivo || "Consulta rutinaria"}"
-                              </p>
-                            </div>
-
-                            <span className="badge badge-activo" style={{ padding: "0.3rem 0.8rem", fontSize: "0.78rem" }}>
-                              {cita.estado}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Formulario de reserva de cita */}
+                {/* Formulario de reserva de cita (Izquierda) */}
                 <div style={{ backgroundColor: "#f8fafc", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: "1.5rem" }}>
                   <h4 style={{ fontFamily: "var(--font-heading)", color: "var(--accent-teal)", marginBottom: "0.5rem" }}>Solicitar Nueva Cita</h4>
                   <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                    Reserva tu cita médica consumiendo directamente el servicio `POST /clinica/cita` del backend.
+                    Reserva tu cita médica seleccionando una sede, médico y horario disponible.
                   </p>
 
                   <form onSubmit={handleBookAppointmentSubmit}>
@@ -1002,34 +972,34 @@ function App() {
                         type="datetime-local"
                         value={appointmentForm.fecha_hora}
                         onChange={(e) => setAppointmentForm({ ...appointmentForm, fecha_hora: e.target.value })}
+                        min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                         style={{ padding: "0.5rem" }}
                         required
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: "0.8rem" }}>
-                      <label style={{ fontSize: "0.8rem" }}>Médico / Especialista</label>
+                      <label style={{ fontSize: "0.8rem" }}>Médico / Especialista *</label>
                       <select
                         value={appointmentForm.doctor_id}
                         onChange={(e) => {
-                          const docNames = {
-                            "1": "Dr. Andrés Beltrán (Cardiología)",
-                            "2": "Dra. Helena Rostova (Ginecología)",
-                            "3": "Dr. Alberto Fujimoto (Cirugía General)",
-                            "4": "Dr. Emilio Vargas (Geriatría)"
-                          };
+                          const selectedId = e.target.value;
+                          const selectedDoc = doctoresList.find(d => d.id.toString() === selectedId.toString());
+                          const docName = selectedDoc ? `Dr(a). ${selectedDoc.nombres} ${selectedDoc.apellidos} (${selectedDoc.especialidad})` : "";
                           setAppointmentForm({
                             ...appointmentForm,
-                            doctor_id: e.target.value,
-                            doctor_nombre: docNames[e.target.value]
+                            doctor_id: selectedId,
+                            doctor_nombre: docName
                           });
                         }}
                         style={{ padding: "0.5rem" }}
+                        required
                       >
-                        <option value="1">Dr. Andrés Beltrán (Cardiología)</option>
-                        <option value="2">Dra. Helena Rostova (Ginecología)</option>
-                        <option value="3">Dr. Alberto Fujimoto (Cirugía General)</option>
-                        <option value="4">Dr. Emilio Vargas (Geriatría)</option>
+                        {doctoresList.map((doc) => (
+                          <option key={doc.id} value={doc.id}>
+                            {`Dr(a). ${doc.nombres} ${doc.apellidos} (${doc.especialidad})`}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -1051,6 +1021,73 @@ function App() {
                   </form>
                 </div>
 
+                {/* Lista de citas (Derecha) */}
+                <div>
+                  <h3 className="card-title" style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>Próximas Citas Agendadas</h3>
+                  {citasList.length === 0 ? (
+                    <div className="no-data" style={{ padding: "3rem" }}>No se registran citas agendadas en ECOSALUD.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                      {citasList.map((cita) => {
+                        const dateStr = formatCitaFecha(cita.fecha_hora);
+                        const timeStr = formatCitaHora(cita.fecha_hora);
+                        
+                        // Buscar el nombre del doctor dinámicamente usando el doctoresList cargado
+                        const matchedDoc = doctoresList.find(d => d.id.toString() === cita.doctor_id?.toString());
+                        const doctorDisplayName = matchedDoc 
+                          ? `Dr(a). ${matchedDoc.nombres} ${matchedDoc.apellidos} (${matchedDoc.especialidad})` 
+                          : (cita.doctor_nombre || `Médico (ID: ${cita.doctor_id})`);
+
+                        const estadoUpper = cita.estado?.toUpperCase() || "AGENDADA";
+                        const badgeClass = estadoUpper === "CANCELADA" ? "badge-inactivo" : "badge-activo";
+
+                        return (
+                          <div
+                            key={cita.id}
+                            style={{
+                              border: "1px solid var(--border-color)",
+                              borderRadius: "var(--radius-md)",
+                              padding: "1.2rem",
+                              backgroundColor: "#ffffff",
+                              boxShadow: "var(--shadow-sm)",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--accent-teal)" }}>
+                                {doctorDisplayName}
+                              </div>
+                              <div style={{ fontSize: "0.92rem", color: "var(--text-primary)", fontWeight: 500, margin: "2px 0" }}>
+                                {dateStr} - {timeStr} ({cita.duracion_minutos} min)
+                              </div>
+                              <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                                Motivo: "{cita.motivo || "Consulta rutinaria"}"
+                              </p>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.8rem" }}>
+                              <span className={`badge ${badgeClass}`} style={{ padding: "0.3rem 0.8rem", fontSize: "0.78rem" }}>
+                                {cita.estado}
+                              </span>
+                              {estadoUpper === "AGENDADA" && (
+                                <button
+                                  onClick={() => handleCancelAppointment(cita.id)}
+                                  className="btn btn-danger-outline"
+                                  style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", minHeight: "auto", border: "1px solid rgba(239, 68, 68, 0.4)" }}
+                                >
+                                  Cancelar Cita
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
           )}
@@ -1060,6 +1097,14 @@ function App() {
           {activeTab === "direccion" && (
             <DashboardDireccion />
           )}
+          {/* 👇 INYECTA EL MODAL AQUÍ ABAJO: */}
+          <RecordatorioModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            data={appointmentData} 
+          />
+
+          
         </div>
       )}
     </div>
