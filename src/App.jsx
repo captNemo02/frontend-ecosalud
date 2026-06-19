@@ -219,6 +219,9 @@ function App() {
       } else if (activeTab === "ordenes") {
         const ords = await apiService.getOrdenesMedicas(id);
         setOrdenesList(ords);
+      } else if (activeTab === "ordenes2") {
+        const ords = await apiService.getOrdenesMedicas(id);
+        setOrdenesList(ords);
       } else if (activeTab === "citas") {
         const [citas, sedes] = await Promise.all([
           apiService.getCitasPaciente(id),
@@ -618,6 +621,9 @@ function App() {
           <button className={`tab-btn ${activeTab === "ordenes" ? "active" : ""}`} onClick={() => setActiveTab("ordenes")}>
             Órdenes Médicas
           </button>
+          <button className={`tab-btn ${activeTab === "ordenes2" ? "active" : ""}`} onClick={() => setActiveTab("ordenes2")}>
+            Órdenes Médicas 2
+          </button>
           <button className={`tab-btn ${activeTab === "citas" ? "active" : ""}`} onClick={() => setActiveTab("citas")}>
             Mis Citas
           </button>
@@ -886,7 +892,30 @@ function App() {
               </div>
             </div>
           )}
+       {/* Pestaña: Órdenes Médicas 2 */}     
+{activeTab === "ordenes2" && (
+  <div className="card">
+    <h2 className="card-title">Órdenes Médicas 2</h2>
+    <p className="card-subtitle">
+      Órdenes médicas provenientes del servicio Doctor.
+    </p>
 
+    {ordenesList.length === 0 ? (
+      <div className="no-data">No hay órdenes médicas registradas.</div>
+    ) : (
+      ordenesList.map((orden, index) => (
+        <div key={orden.id || index} className="order-card">
+          <p><strong>Paciente ID:</strong> {orden.paciente_id}</p>
+          <p><strong>Tipo:</strong> {orden.tipo_orden}</p>
+          <p><strong>Descripción:</strong> {orden.descripcion || orden.detalle}</p>
+          <p><strong>Médico:</strong> {orden.medico_responsable || orden.doctor_id}</p>
+          <p><strong>Vencimiento:</strong> {orden.fecha_vencimiento}</p>
+          <p><strong>Estado:</strong> {orden.estado || "Pendiente"}</p>
+        </div>
+      ))
+    )}
+  </div>
+)}
           {/* Pestaña: Mis Citas */}
           {activeTab === "citas" && (
             <div className="card">
