@@ -691,50 +691,79 @@ function App() {
           )}
 
           {/* Pestaña: Mi Historial Clínico */}
-          {activeTab === "historial" && (
-            <div className="card">
-              <h2 className="card-title">Mi Historial Clínico Digital</h2>
-              <p className="card-subtitle">Cronología detallada de tus diagnósticos y atenciones médicas en ECOSALUD.</p>
+        {activeTab === "historial" && (
+  <div className="card">
+    <h2 className="card-title">Mi Historial Clínico Digital</h2>
+    <p className="card-subtitle">
+      Cronología detallada de tus citas, recetas, tratamientos y atenciones médicas en ECOSALUD.
+    </p>
 
-              <div className="timeline-container">
-                <div className="timeline-line"></div>
-                {historialList.length === 0 ? (
-                  <div className="no-data" style={{ paddingLeft: "50px", textAlign: "left" }}>
-                    No hay eventos registrados en tu historial clínico actualmente.
-                  </div>
-                ) : (
-                  historialList.map((item) => (
-                    <div key={item.id} className={`timeline-item ${item.tipo_registro?.toLowerCase()}`}>
-                      <div className="timeline-dot"></div>
-                      <div className="timeline-content">
-                        <div className="timeline-header">
-                          <div className="timeline-title-area">
-                            <span className="timeline-title">{item.titulo}</span>
-                            <span className={`timeline-type-tag ${item.tipo_registro?.toLowerCase()}`}>
-                              {item.tipo_registro}
-                            </span>
-                          </div>
-                          <span className="timeline-date">Fecha: {item.fecha_evento}</span>
-                        </div>
+    <div className="timeline-container">
+      <div className="timeline-line"></div>
 
-                        <p className="timeline-description">{item.descripcion}</p>
+      {historialList.length === 0 ? (
+        <div className="no-data" style={{ paddingLeft: "50px", textAlign: "left" }}>
+          No hay eventos registrados en tu historial clínico actualmente.
+        </div>
+      ) : (
+        historialList.map((item, index) => (
+          <div key={item.id || index} className={`timeline-item ${item.tipo_registro?.toLowerCase()}`}>
+            <div className="timeline-dot"></div>
 
-                        <div className="timeline-meta">
-                          <span>Médico Responsable: <strong className="timeline-doctor">{item.medico_responsable}</strong></span>
-                          {item.documento_adjunto_url && (
-                            <a href={item.documento_adjunto_url} target="_blank" rel="noreferrer" className="timeline-attachment">
-                              Ver Resultados / Adjunto
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
+            <div className="timeline-content">
+              <div className="timeline-header">
+                <div className="timeline-title-area">
+                  <span className="timeline-title">{item.titulo}</span>
+                  <span className={`timeline-type-tag ${item.tipo_registro?.toLowerCase()}`}>
+                    {item.tipo_registro}
+                  </span>
+                </div>
+
+                <span className="timeline-date">
+                  Fecha: {item.fecha_evento || "No registrada"}
+                </span>
+              </div>
+
+              <p className="timeline-description">
+                {item.descripcion || "Sin descripción registrada"}
+              </p>
+
+              <p className="timeline-description">
+                <strong>Receta:</strong> {item.receta || item.medicamento || "No registrada"}
+              </p>
+
+              <p className="timeline-description">
+                <strong>Tratamiento posterior:</strong>{" "}
+                {item.tratamiento_posterior || item.indicaciones || "No registrado"}
+              </p>
+
+              <div className="timeline-meta">
+                <span>
+                  Médico Responsable:{" "}
+                  <strong className="timeline-doctor">
+                    {item.medico_responsable || item.doctor_nombre || "No registrado"}
+                  </strong>
+                </span>
+
+                {item.documento_adjunto_url && (
+                  <a
+                    href={item.documento_adjunto_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="timeline-attachment"
+                  >
+                    Ver Resultados / Adjunto
+                  </a>
                 )}
               </div>
             </div>
-          )}
-
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+          
           {/* Pestaña: Mis Recetas */}
           {activeTab === "recetas" && (
             <div className="card">
