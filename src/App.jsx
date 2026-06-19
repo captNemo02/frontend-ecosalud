@@ -909,7 +909,7 @@ function App() {
               </div>
             </div>
           )}
-       {/* Pestaña: Órdenes Médicas 2 */}     
+      {/* Pestaña: Órdenes Médicas 2 */}
 {activeTab === "ordenes2" && (
   <div className="card">
     <h2 className="card-title">Órdenes Médicas 2</h2>
@@ -920,16 +920,57 @@ function App() {
     {ordenesList.length === 0 ? (
       <div className="no-data">No hay órdenes médicas registradas.</div>
     ) : (
-      ordenesList.map((orden, index) => (
-        <div key={orden.id || index} className="order-card">
-          <p><strong>Paciente ID:</strong> {orden.paciente_id}</p>
-          <p><strong>Tipo:</strong> {orden.tipo_orden}</p>
-          <p><strong>Descripción:</strong> {orden.descripcion || orden.detalle}</p>
-          <p><strong>Médico:</strong> {orden.medico_responsable || orden.doctor_id}</p>
-          <p><strong>Vencimiento:</strong> {orden.fecha_vencimiento}</p>
-          <p><strong>Estado:</strong> {orden.estado || "Pendiente"}</p>
-        </div>
-      ))
+      <div style={{ display: "grid", gap: "1rem", marginTop: "1.5rem" }}>
+        {ordenesList.map((orden, index) => (
+          <div
+            key={orden.id || index}
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: "14px",
+              padding: "1.2rem",
+              background: "#ffffff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.06)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.8rem" }}>
+              <h3 style={{ margin: 0, color: "#007c89" }}>
+                {orden.tipo_orden}
+              </h3>
+
+              <span
+                style={{
+                  background: "#dcfce7",
+                  color: "#166534",
+                  padding: "0.35rem 0.7rem",
+                  borderRadius: "999px",
+                  fontWeight: "700",
+                  fontSize: "0.8rem"
+                }}
+              >
+                {orden.estado || "Pendiente"}
+              </span>
+            </div>
+
+            <p style={{ marginBottom: "0.8rem", color: "#334155" }}>
+              <strong>Descripción:</strong> {orden.descripcion || orden.detalle}
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "0.8rem",
+                fontSize: "0.9rem"
+              }}
+            >
+              <p><strong>Paciente ID:</strong> {orden.paciente_id}</p>
+              <p><strong>Médico:</strong> {orden.medico_responsable || orden.doctor_id}</p>
+              <p><strong>Emisión:</strong> {orden.fecha_emision || "No registrada"}</p>
+              <p><strong>Vencimiento:</strong> {orden.fecha_vencimiento}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     )}
   </div>
 )}
