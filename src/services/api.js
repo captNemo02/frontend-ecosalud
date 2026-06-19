@@ -164,7 +164,9 @@ export const apiService = {
   },
 
   async getCitasPaciente(pacienteId) {
-    const response = await secureRequest(`${API_BASE_URL}/clinica/citas/paciente/${pacienteId}`, { method: "GET" }, true);
+    const response = await fetch(`https://api-clinica-soa.onrender.com/clinica/citas?paciente_id=${pacienteId}`, {
+      method: "GET"
+    });
     if (!response.ok) {
       throw new Error("Error al obtener las citas del paciente");
     }
@@ -172,14 +174,46 @@ export const apiService = {
   },
 
   async crearCita(data) {
-    const response = await secureRequest(`${API_BASE_URL}/clinica/cita`, {
+    const response = await fetch("https://api-clinica-soa.onrender.com/clinica/cita", {
       method: "POST",
-      body: JSON.stringify(data),
-    }, true);
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        clinica_id: data.clinica_id,
+        sede_id: data.sede_id,
+        paciente_id: data.paciente_id,
+        doctor_id: data.doctor_id,
+        fecha_hora: data.fecha_hora,
+        duracion_minutos: data.duracion_minutos || 30,
+        motivo: data.motivo
+      })
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || "Error al agendar la cita");
+    }
+    return await response.json();
+  },
+
+  async cancelarCita(citaId) {
+    const response = await fetch(`https://api-clinica-soa.onrender.com/clinica/cita/${citaId}/estado?nuevo_estado=CANCELADA`, {
+      method: "PUT"
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Error al cancelar la cita");
+    }
+    return await response.json();
+  },
+
+  async getDoctoresActivos() {
+    const response = await fetch("https://serviciodoctor.onrender.com/doctores?activo=true", {
+      method: "GET"
+    });
+    if (!response.ok) {
+      throw new Error("Error al obtener la lista de doctores");
     }
     return await response.json();
   },
