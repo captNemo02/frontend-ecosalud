@@ -3,7 +3,7 @@ import { apiService } from "./services/api";
 import Estadisticas from "./Estadisticas";
 import DashboardDireccion from "./services/components/DashboardDireccion";
 import RecordatorioModal from "./RecordatorioModal";
-import Recetas from "./Recetas";
+import Recetas from "./recetas";
 
 function App() {
   // Estado de la autenticación
