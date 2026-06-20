@@ -665,9 +665,7 @@ function App() {
           <button className={`tab-btn ${activeTab === "ordenes" ? "active" : ""}`} onClick={() => setActiveTab("ordenes")}>
             Órdenes Médicas
           </button>
-          <button className={`tab-btn ${activeTab === "ordenes2" ? "active" : ""}`} onClick={() => setActiveTab("ordenes2")}>
-            Órdenes Médicas 2
-          </button>
+
           <button className={`tab-btn ${activeTab === "citas" ? "active" : ""}`} onClick={() => setActiveTab("citas")}>
             Mis Citas
           </button>
