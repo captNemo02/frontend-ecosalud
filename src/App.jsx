@@ -224,7 +224,10 @@ function App() {
       } else if (activeTab === "ordenes") {
         const ords = await apiService.getOrdenesMedicas(id);
         setOrdenesList(ords);
-     
+      } else if (activeTab === "ordenes2") {
+        const ords = await apiService.getOrdenesMedicas(id);
+        setOrdenesList(ords);
+
       } else if (activeTab === "citas") {
         const [citas, sedes, doctores] = await Promise.all([
           apiService.getCitasPaciente(id),
