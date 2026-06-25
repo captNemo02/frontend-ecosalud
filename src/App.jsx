@@ -803,9 +803,14 @@ function App() {
                     Ver Resultados / Adjunto
                   </a>
                 )}
-                 </div>
+                              </div>
             </div>
-          )}
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
 
           {/* TAB: MIS RECETAS */}
           {activeTab === "recetas" && (
