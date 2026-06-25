@@ -138,13 +138,27 @@ export const apiService = {
     return await response.json();
   },
 
-  async getRecetas(id) {
-    const response = await secureRequest(`${API_BASE_URL}/paciente/${id}/recetas`, { method: "GET" }, true);
-    if (!response.ok) {
-      throw new Error("Error al obtener las recetas médicas");
-    }
-    return await response.json();
-  },
+ async getRecetas(id) {
+  const response = await secureRequest(`${API_BASE_URL}/paciente/${id}/recetas-remotas`, { method: "GET" }, true);
+
+  if (!response.ok) {
+    throw new Error("Error al obtener las recetas médicas del microservicio de doctores");
+  }
+
+  const data = await response.json();
+
+  // Si el backend devuelve { paciente_id: 1, recetas: [...] }
+  if (data.recetas) {
+    return data.recetas;
+  }
+
+  // Si el backend devuelve directamente [...]
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return [];
+},
 
   async getOrdenesMedicas(id) {
     const response = await secureRequest(`${API_BASE_URL}/paciente/${id}/ordenes-medicas`, { method: "GET" }, true);
