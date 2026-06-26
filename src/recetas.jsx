@@ -14,7 +14,8 @@ const Recetas = ({ recetasList }) => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem", marginTop: "1rem" }}>
           {recetasList.map((receta) => {
             // Validar si la receta ya pasó su fecha límite de vigencia
-            const esVencido = receta.fecha_vencimiento && new Date(receta.fecha_vencimiento) < new Date();
+            const estadoReceta = receta.estado || "SIN ESTADO";
+            const esVencido = estadoReceta === "CADUCADO" || estadoReceta === "VENCIDO";
             
             return (
               <div 
@@ -44,7 +45,7 @@ const Recetas = ({ recetasList }) => {
                       backgroundColor: esVencido ? "#fed7d7" : "#c6f6d5",
                       color: esVencido ? "#c53030" : "#22543d"
                     }}>
-                      {esVencido ? "Vencido" : (receta.estado || "VIGENTE")}
+                      {estadoReceta}
                     </span>
                   </div>
                   
