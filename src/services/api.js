@@ -152,8 +152,10 @@ export const apiService = {
     throw new Error("Error al obtener el historial clínico desde el servicio doctor");
   }
 
-  const data = await response.json();
+const data = await response.json();
 
+console.log("Historial recibido:", data);
+    
   const diagnosticos = (data.diagnosticos || []).map((diag) => ({
     id: `diag-${diag.id}`,
     tipo_registro: "DIAGNOSTICO",
