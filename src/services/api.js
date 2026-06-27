@@ -128,7 +128,7 @@ export const apiService = {
     }
     return await response.json();
   },
-
+/*
   // --- Sub-recursos del Paciente ---
   async getHistorialClinico(id) {
     const response = await secureRequest(`${API_BASE_URL}/paciente/${id}/historial-clinico`, { method: "GET" }, true);
@@ -136,7 +136,50 @@ export const apiService = {
       throw new Error("Error al obtener el historial clínico");
     }
     return await response.json();
-  },
+  },*/    
+  // --- Sub-recursos del Paciente ---
+
+  async getHistorialClinico(id) {
+  const doctorId = 1;
+
+  const response = await secureRequest(
+    `https://serviciodoctor.onrender.com/doctor/consulta-paciente?paciente_id=${id}&doctor_id=${doctorId}`,
+    { method: "GET" },
+    true
+  );
+
+  if (!response.ok) {
+    throw new Error("Error al obtener el historial clínico desde el servicio doctor");
+  }
+
+  const data = await response.json();
+
+  const diagnosticos = (data.diagnosticos || []).map((diag) => ({
+    id: `diag-${diag.id}`,
+    tipo_registro: "DIAGNOSTICO",
+    titulo: diag.nombre_diagnostico,
+    fecha_evento: diag.fecha,
+    descripcion: `${diag.descripcion} | CIE: ${diag.codigo_cie} | Gravedad: ${diag.gravedad}`,
+    receta: "No aplica",
+    tratamiento_posterior: "Según evaluación médica",
+    medico_responsable: data.consultado_por?.nombre || "No registrado",
+  }));
+
+  const ordenes = (data.ordenes_medicas || []).map((orden) => ({
+    id: `orden-${orden.id}`,
+    tipo_registro: "ORDEN",
+    titulo: orden.tipo,
+    fecha_evento: orden.vencimiento,
+    descripcion: orden.detalle,
+    receta: "No aplica",
+    tratamiento_posterior: `Estado: ${orden.estado}`,
+    medico_responsable: data.consultado_por?.nombre || "No registrado",
+  }));
+
+  return [...diagnosticos, ...ordenes];
+},
+  
+  // --- Fin-hisotrial del Paciente ---
 
  async getRecetas(id) {
   const response = await secureRequest(`${API_BASE_URL}/paciente/${id}/recetas-remotas`, { method: "GET" }, true);
