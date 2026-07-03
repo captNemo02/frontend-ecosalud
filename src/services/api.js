@@ -289,5 +289,32 @@ console.log("Historial recibido:", data);
       throw new Error(errorData.detail || "Error al emitir la orden médica");
     }
     return await response.json();
+  },
+
+  // --- Multi-Factor Authentication (MFA) ---
+  async verifyMFA(mfa_token, code) {
+    const response = await secureRequest(`${API_BASE_URL}/paciente/verify-mfa`, {
+      method: "POST",
+      body: JSON.stringify({ mfa_token, code }),
+    }, false);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Código de verificación incorrecto o expirado");
+    }
+    return await response.json();
+  },
+
+  async resendMFA(mfa_token) {
+    const response = await secureRequest(`${API_BASE_URL}/paciente/resend-mfa`, {
+      method: "POST",
+      body: JSON.stringify({ mfa_token }),
+    }, false);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Error al reenviar el código");
+    }
+    return await response.json();
   }
 };

@@ -10,6 +10,13 @@ function App() {
   const [pacienteLogged, setPacienteLogged] = useState(null);
   const [authTab, setAuthTab] = useState("login");
 
+  // Estados para el flujo de Doble Factor (MFA)
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaEmail, setMfaEmail] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaCountdown, setMfaCountdown] = useState(0);
+
   // Estado de navegación del portal (pestañas activas)
   const [activeTab, setActiveTab] = useState("perfil");
 
@@ -119,6 +126,15 @@ function App() {
     }
   }, [pacienteLogged?.id, activeTab]);
 
+  // Temporizador para reenvío del código MFA
+  useEffect(() => {
+    if (mfaCountdown <= 0) return;
+    const timer = setTimeout(() => {
+      setMfaCountdown(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [mfaCountdown]);
+
   const showAlert = (type, message) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 5000);
@@ -148,6 +164,47 @@ function App() {
     try {
       const response = await apiService.loginPaciente(loginData.email, loginData.numero_documento);
 
+      if (response.mfa_required) {
+        setMfaToken(response.mfa_token);
+        setMfaEmail(response.email_masked);
+        setMfaRequired(true);
+        setMfaCountdown(60);
+        setMfaCode("");
+        showAlert("info", "Se ha enviado un código de verificación de 6 dígitos a su correo.");
+      } else {
+        localStorage.setItem("access_token", response.access_token);
+        localStorage.setItem("refresh_token", response.refresh_token);
+        localStorage.setItem("paciente_id", response.paciente_id.toString());
+        localStorage.setItem("paciente_nombres", response.nombres);
+        localStorage.setItem("paciente_apellidos", response.apellidos);
+
+        setPacienteLogged({
+          id: response.paciente_id,
+          nombres: response.nombres,
+          apellidos: response.apellidos
+        });
+        setActiveTab("perfil");
+        showAlert("success", `¡Bienvenido, ${response.nombres}! Sesión iniciada.`);
+      }
+    } catch (err) {
+      showAlert("error", err.message || "Error de autenticación. Verifique su correo y DNI.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Procesa la verificación del código MFA
+  const handleMFAVerifySubmit = async (e) => {
+    e.preventDefault();
+    if (!mfaCode || mfaCode.length !== 6) {
+      showAlert("error", "Por favor ingresa el código de 6 dígitos.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiService.verifyMFA(mfaToken, mfaCode);
+
       localStorage.setItem("access_token", response.access_token);
       localStorage.setItem("refresh_token", response.refresh_token);
       localStorage.setItem("paciente_id", response.paciente_id.toString());
@@ -159,10 +216,34 @@ function App() {
         nombres: response.nombres,
         apellidos: response.apellidos
       });
+      
+      // Limpiar estados de MFA
+      setMfaRequired(false);
+      setMfaToken("");
+      setMfaCode("");
+      
       setActiveTab("perfil");
-      showAlert("success", `¡Bienvenido, ${response.nombres}! Sesión iniciada.`);
+      showAlert("success", `¡Bienvenido, ${response.nombres}! Inicio de sesión exitoso.`);
     } catch (err) {
-      showAlert("error", err.message || "Error de autenticación. Verifique su correo y DNI.");
+      showAlert("error", err.message || "Código incorrecto o expirado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reenvía el código de verificación
+  const handleMFAResend = async () => {
+    if (mfaCountdown > 0) return;
+
+    setLoading(true);
+    try {
+      const response = await apiService.resendMFA(mfaToken);
+      setMfaToken(response.mfa_token);
+      setMfaCountdown(60);
+      setMfaCode("");
+      showAlert("success", "Se ha reenviado un nuevo código de verificación a tu correo.");
+    } catch (err) {
+      showAlert("error", err.message || "Error al reenviar el código.");
     } finally {
       setLoading(false);
     }
@@ -430,197 +511,295 @@ function App() {
             <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginTop: "0.2rem" }}>Portal Digital del Paciente</p>
           </div>
 
-          <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "1.8rem" }}>
-            <button
-              onClick={() => setAuthTab("login")}
-              style={{
-                flex: 1,
-                padding: "0.8rem",
-                background: "none",
-                border: "none",
-                fontFamily: "var(--font-heading)",
-                fontWeight: "700",
-                fontSize: "1.05rem",
-                color: authTab === "login" ? "var(--accent-teal)" : "var(--text-muted)",
-                borderBottom: authTab === "login" ? "3px solid var(--accent-teal)" : "none",
-                cursor: "pointer"
-              }}
-            >
-              Iniciar Sesión
-            </button>
-            <button
-              onClick={() => setAuthTab("register")}
-              style={{
-                flex: 1,
-                padding: "0.8rem",
-                background: "none",
-                border: "none",
-                fontFamily: "var(--font-heading)",
-                fontWeight: "700",
-                fontSize: "1.05rem",
-                color: authTab === "register" ? "var(--accent-teal)" : "var(--text-muted)",
-                borderBottom: authTab === "register" ? "3px solid var(--accent-teal)" : "none",
-                cursor: "pointer"
-              }}
-            >
-              Registrarse
-            </button>
-          </div>
-
-          {alert && (
-            <div className={`alert ${alert.type === "success" ? "alert-success" : "alert-error"}`} style={{ marginBottom: "1.2rem" }}>
-              {alert.type === "success" ? "✓" : "⚠"} {alert.message}
-            </div>
-          )}
-
-          {/* Formulario de Inicio de Sesión */}
-          {authTab === "login" && (
-            <form onSubmit={handleLoginSubmit}>
-              <div className="form-group" style={{ marginBottom: "1.2rem" }}>
-                <label>Correo Electrónico *</label>
-                <input
-                  type="email"
-                  value={loginData.email}
-                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                  placeholder="ejemplo@correo.com"
-                  required
-                />
+          {mfaRequired ? (
+            <form onSubmit={handleMFAVerifySubmit}>
+              <div style={{ textAlign: "center", marginBottom: "1.8rem" }}>
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0, 124, 137, 0.1)",
+                  color: "var(--accent-teal)",
+                  fontSize: "1.8rem",
+                  marginBottom: "1rem"
+                }}>
+                  🔐
+                </div>
+                <h3 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.3rem", fontWeight: "700", margin: "0 0 0.5rem 0" }}>
+                  Verificación de Doble Factor
+                </h3>
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", lineHeight: "1.4" }}>
+                  Por tu seguridad, ingresa el código de 6 dígitos que hemos enviado a tu correo registrado:<br/>
+                  <strong style={{ color: "var(--text-primary)", fontSize: "0.95rem" }}>{mfaEmail}</strong>
+                </p>
               </div>
 
-              <div className="form-group" style={{ marginBottom: "1.8rem" }}>
-                <label>DNI (Documento de Identidad) *</label>
+              <div className="form-group" style={{ marginBottom: "1.8rem", textAlign: "center" }}>
+                <label style={{ display: "block", marginBottom: "0.8rem", textAlign: "left" }}>Código de Verificación *</label>
                 <input
                   type="text"
-                  value={loginData.numero_documento}
-                  onChange={(e) => setLoginData({ ...loginData, numero_documento: e.target.value })}
-                  placeholder="Ingresa tu DNI"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  style={{
+                    letterSpacing: "12px",
+                    fontSize: "2.2rem",
+                    textAlign: "center",
+                    fontWeight: "800",
+                    fontFamily: "monospace",
+                    padding: "0.8rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "2px solid var(--accent-teal)",
+                    width: "100%",
+                    boxShadow: "0 0 10px rgba(0, 124, 137, 0.15)",
+                    color: "var(--accent-teal)",
+                    backgroundColor: "#fcfdfd"
+                  }}
                   required
                 />
               </div>
 
               <button type="submit" className="btn btn-teal" style={{ width: "100%" }} disabled={loading}>
-                {loading ? <span className="spinner"></span> : "Acceder al Portal"}
+                {loading ? <span className="spinner"></span> : "Verificar Código"}
               </button>
 
-              <div style={{ textAlign: "center", marginTop: "1rem" }}>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  La autenticación se realiza validando tu Correo y tu DNI directamente en la base de datos de pacientes.
-                </p>
+              <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+                {mfaCountdown > 0 ? (
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    Reenviar código en <strong style={{ color: "var(--accent-teal)" }}>{mfaCountdown}s</strong>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleMFAResend}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--accent-teal)",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      textDecoration: "underline"
+                    }}
+                  >
+                    ¿No recibiste el código? Reenviar código
+                  </button>
+                )}
+              </div>
+
+              <div style={{ textAlign: "center", marginTop: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaRequired(false);
+                    setMfaToken("");
+                    setMfaCode("");
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    fontSize: "0.85rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  Volver al inicio de sesión
+                </button>
               </div>
             </form>
-          )}
-
-          {/* Formulario de Registro */}
-          {authTab === "register" && (
-            <form onSubmit={handleRegisterSubmit}>
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="form-group">
-                  <label>Nombres *</label>
-                  <input
-                    type="text"
-                    value={regData.nombres}
-                    onChange={(e) => setRegData({ ...regData, nombres: e.target.value })}
-                    placeholder="Ej. Carlos"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Apellidos *</label>
-                  <input
-                    type="text"
-                    value={regData.apellidos}
-                    onChange={(e) => setRegData({ ...regData, apellidos: e.target.value })}
-                    placeholder="Ej. Mendoza"
-                    required
-                  />
-                </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "1.8rem" }}>
+                <button
+                  onClick={() => setAuthTab("login")}
+                  style={{
+                    flex: 1,
+                    padding: "0.8rem",
+                    background: "none",
+                    border: "none",
+                    fontFamily: "var(--font-heading)",
+                    fontWeight: "700",
+                    fontSize: "1.05rem",
+                    color: authTab === "login" ? "var(--accent-teal)" : "var(--text-muted)",
+                    borderBottom: authTab === "login" ? "3px solid var(--accent-teal)" : "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  onClick={() => setAuthTab("register")}
+                  style={{
+                    flex: 1,
+                    padding: "0.8rem",
+                    background: "none",
+                    border: "none",
+                    fontFamily: "var(--font-heading)",
+                    fontWeight: "700",
+                    fontSize: "1.05rem",
+                    color: authTab === "register" ? "var(--accent-teal)" : "var(--text-muted)",
+                    borderBottom: authTab === "register" ? "3px solid var(--accent-teal)" : "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  Registrarse
+                </button>
               </div>
 
-              <div className="form-grid" style={{ gridTemplateColumns: "1.2fr 1.8fr", gap: "1rem", marginTop: "1rem" }}>
-                <div className="form-group">
-                  <label>Tipo Doc. *</label>
-                  <select
-                    value={regData.tipo_documento}
-                    onChange={(e) => setRegData({ ...regData, tipo_documento: e.target.value })}
-                    required
-                  >
-                    <option value="DNI">DNI</option>
-                    <option value="CE">CE</option>
-                    <option value="PASAPORTE">Pasaporte</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Número Doc. *</label>
-                  <input
-                    type="text"
-                    value={regData.numero_documento}
-                    onChange={(e) => setRegData({ ...regData, numero_documento: e.target.value })}
-                    placeholder="Ej. 70485963"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Formulario de Inicio de Sesión */}
+              {authTab === "login" && (
+                <form onSubmit={handleLoginSubmit}>
+                  <div className="form-group" style={{ marginBottom: "1.2rem" }}>
+                    <label>Correo Electrónico *</label>
+                    <input
+                      type="email"
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      placeholder="ejemplo@correo.com"
+                      required
+                    />
+                  </div>
 
-              <div className="form-grid" style={{ gridTemplateColumns: "1.2fr 1.8fr", gap: "1rem", marginTop: "1rem" }}>
-                <div className="form-group">
-                  <label>Fecha Nac. *</label>
-                  <input
-                    type="date"
-                    value={regData.fecha_nacimiento}
-                    onChange={(e) => setRegData({ ...regData, fecha_nacimiento: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Género *</label>
-                  <select
-                    value={regData.genero}
-                    onChange={(e) => setRegData({ ...regData, genero: e.target.value })}
-                    required
-                  >
-                    <option value="MASCULINO">Masculino</option>
-                    <option value="FEMENINO">Femenino</option>
-                    <option value="OTRO">Otro</option>
-                  </select>
-                </div>
-              </div>
+                  <div className="form-group" style={{ marginBottom: "1.8rem" }}>
+                    <label>DNI (Documento de Identidad) *</label>
+                    <input
+                      type="text"
+                      value={loginData.numero_documento}
+                      onChange={(e) => setLoginData({ ...loginData, numero_documento: e.target.value })}
+                      placeholder="Ingresa tu DNI"
+                      required
+                    />
+                  </div>
 
-              <div className="form-group" style={{ marginTop: "1rem" }}>
-                <label>Correo Electrónico *</label>
-                <input
-                  type="email"
-                  value={regData.email}
-                  onChange={(e) => setRegData({ ...regData, email: e.target.value })}
-                  placeholder="ejemplo@correo.com"
-                  required
-                />
-              </div>
+                  <button type="submit" className="btn btn-teal" style={{ width: "100%" }} disabled={loading}>
+                    {loading ? <span className="spinner"></span> : "Acceder al Portal"}
+                  </button>
 
-              <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-                <div className="form-group">
-                  <label>Teléfono</label>
-                  <input
-                    type="tel"
-                    value={regData.telefono}
-                    onChange={(e) => setRegData({ ...regData, telefono: e.target.value })}
-                    placeholder="999888777"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Dirección</label>
-                  <input
-                    type="text"
-                    value={regData.direccion}
-                    onChange={(e) => setRegData({ ...regData, direccion: e.target.value })}
-                    placeholder="Av. Larco 123"
-                  />
-                </div>
-              </div>
+                  <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                    <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                      La autenticación se realiza validando tu Correo y tu DNI directamente en la base de datos de pacientes.
+                    </p>
+                  </div>
+                </form>
+              )}
 
-              <button type="submit" className="btn btn-teal" style={{ width: "100%", marginTop: "1.5rem" }} disabled={loading}>
-                {loading ? <span className="spinner"></span> : "Crear Cuenta"}
-              </button>
-            </form>
+              {/* Formulario de Registro */}
+              {authTab === "register" && (
+                <form onSubmit={handleRegisterSubmit}>
+                  <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div className="form-group">
+                      <label>Nombres *</label>
+                      <input
+                        type="text"
+                        value={regData.nombres}
+                        onChange={(e) => setRegData({ ...regData, nombres: e.target.value })}
+                        placeholder="Ej. Carlos"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Apellidos *</label>
+                      <input
+                        type="text"
+                        value={regData.apellidos}
+                        onChange={(e) => setRegData({ ...regData, apellidos: e.target.value })}
+                        placeholder="Ej. Mendoza"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid" style={{ gridTemplateColumns: "1.2fr 1.8fr", gap: "1rem", marginTop: "1rem" }}>
+                    <div className="form-group">
+                      <label>Tipo Doc. *</label>
+                      <select
+                        value={regData.tipo_documento}
+                        onChange={(e) => setRegData({ ...regData, tipo_documento: e.target.value })}
+                        required
+                      >
+                        <option value="DNI">DNI</option>
+                        <option value="CE">CE</option>
+                        <option value="PASAPORTE">Pasaporte</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Número Doc. *</label>
+                      <input
+                        type="text"
+                        value={regData.numero_documento}
+                        onChange={(e) => setRegData({ ...regData, numero_documento: e.target.value })}
+                        placeholder="Ej. 70485963"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid" style={{ gridTemplateColumns: "1.2fr 1.8fr", gap: "1rem", marginTop: "1rem" }}>
+                    <div className="form-group">
+                      <label>Fecha Nac. *</label>
+                      <input
+                        type="date"
+                        value={regData.fecha_nacimiento}
+                        onChange={(e) => setRegData({ ...regData, fecha_nacimiento: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Género *</label>
+                      <select
+                        value={regData.genero}
+                        onChange={(e) => setRegData({ ...regData, genero: e.target.value })}
+                        required
+                      >
+                        <option value="MASCULINO">Masculino</option>
+                        <option value="FEMENINO">Femenino</option>
+                        <option value="OTRO">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: "1rem" }}>
+                    <label>Correo Electrónico *</label>
+                    <input
+                      type="email"
+                      value={regData.email}
+                      onChange={(e) => setRegData({ ...regData, email: e.target.value })}
+                      placeholder="ejemplo@correo.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
+                    <div className="form-group">
+                      <label>Teléfono</label>
+                      <input
+                        type="tel"
+                        value={regData.telefono}
+                        onChange={(e) => setRegData({ ...regData, telefono: e.target.value })}
+                        placeholder="999888777"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Dirección</label>
+                      <input
+                        type="text"
+                        value={regData.direccion}
+                        onChange={(e) => setRegData({ ...regData, direccion: e.target.value })}
+                        placeholder="Av. Larco 123"
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn btn-teal" style={{ width: "100%", marginTop: "1.5rem" }} disabled={loading}>
+                    {loading ? <span className="spinner"></span> : "Crear Cuenta"}
+                  </button>
+                </form>
+              )}
+            </>
           )}
 
         </div>
