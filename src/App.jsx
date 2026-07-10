@@ -166,7 +166,7 @@ function App() {
 
       if (response.mfa_required) {
         setMfaToken(response.mfa_token);
-        setMfaEmail(response.email_masked);
+        setMfaEmail(response.email);
         setMfaRequired(true);
         setMfaCountdown(60);
         setMfaCode("");
