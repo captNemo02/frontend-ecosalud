@@ -58,15 +58,24 @@ async function secureRequest(url, options = {}, secured = true) {
 
 export const apiService = {
   // --- Autenticación ---
-  async loginPaciente(email, numero_documento) {
+  async loginPaciente(email, password) {
     const response = await secureRequest(`${API_BASE_URL}/paciente/login`, {
       method: "POST",
-      body: JSON.stringify({ email, numero_documento }),
+      body: JSON.stringify({ email, password }),
     }, false);
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.detail || "Error al iniciar sesión");
+      // Handle the detailed error response structure from FastAPI validation
+      let errorMessage = "Error al iniciar sesión";
+      if (errorData && errorData.detail) {
+        if (typeof errorData.detail === "string") {
+          errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail.map(err => err.msg).join(", ");
+        }
+      }
+      throw new Error(errorMessage);
     }
     return await response.json();
   },

@@ -45,13 +45,14 @@ function App() {
     telefono: "",
     email: "",
     direccion: "",
+    password: "",
     estado: "ACTIVO"
   });
 
   // Estado del formulario de login
   const [loginData, setLoginData] = useState({
     email: "",
-    numero_documento: ""
+    password: ""
   });
 
   // Estado del simulador para la reserva de citas médicas
@@ -155,14 +156,14 @@ function App() {
   // Procesa el formulario de inicio de sesión y guarda el token JWT
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    if (!loginData.email || !loginData.numero_documento) {
-      showAlert("error", "Por favor ingresa tu correo y DNI.");
+    if (!loginData.email || !loginData.password) {
+      showAlert("error", "Por favor ingresa tu correo y contraseña.");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await apiService.loginPaciente(loginData.email, loginData.numero_documento);
+      const response = await apiService.loginPaciente(loginData.email, loginData.password);
 
       if (response.mfa_required) {
         setMfaToken(response.mfa_token);
@@ -252,7 +253,7 @@ function App() {
   // Envía el formulario para registrar un nuevo paciente
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!regData.nombres || !regData.apellidos || !regData.numero_documento || !regData.fecha_nacimiento || !regData.email) {
+    if (!regData.nombres || !regData.apellidos || !regData.numero_documento || !regData.fecha_nacimiento || !regData.email || !regData.password) {
       showAlert("error", "Por favor completa todos los campos requeridos (*).");
       return;
     }
@@ -263,7 +264,7 @@ function App() {
       showAlert("success", "Perfil de paciente creado correctamente. ¡Ya puedes iniciar sesión!");
       setLoginData({
         email: newPaciente.email,
-        numero_documento: newPaciente.numero_documento
+        password: ""
       });
       setAuthTab("login");
 
@@ -277,6 +278,7 @@ function App() {
         telefono: "",
         email: "",
         direccion: "",
+        password: "",
         estado: "ACTIVO"
       });
     } catch (err) {
@@ -665,12 +667,12 @@ function App() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: "1.8rem" }}>
-                    <label>DNI (Documento de Identidad) *</label>
+                    <label>Contraseña *</label>
                     <input
-                      type="text"
-                      value={loginData.numero_documento}
-                      onChange={(e) => setLoginData({ ...loginData, numero_documento: e.target.value })}
-                      placeholder="Ingresa tu DNI"
+                      type="password"
+                      value={loginData.password}
+                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      placeholder="Ingresa tu contraseña"
                       required
                     />
                   </div>
@@ -681,7 +683,7 @@ function App() {
 
                   <div style={{ textAlign: "center", marginTop: "1rem" }}>
                     <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                      La autenticación se realiza validando tu Correo y tu DNI directamente en la base de datos de pacientes.
+                      La autenticación se realiza mediante tu Correo y Contraseña segura.
                     </p>
                   </div>
                 </form>
@@ -792,6 +794,17 @@ function App() {
                         placeholder="Av. Larco 123"
                       />
                     </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: "1rem" }}>
+                    <label>Contraseña *</label>
+                    <input
+                      type="password"
+                      value={regData.password}
+                      onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                      placeholder="Crea una contraseña segura"
+                      required
+                    />
                   </div>
 
                   <button type="submit" className="btn btn-teal" style={{ width: "100%", marginTop: "1.5rem" }} disabled={loading}>
