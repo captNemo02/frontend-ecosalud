@@ -926,6 +926,15 @@ function App() {
                     {pacienteLogged.estado}
                   </span>
                 </div>
+<div style={{ marginTop: "2rem", textAlign: "center" }}>
+  <button 
+    className="btn btn-teal"
+    onClick={() => setActiveTab("password")}
+  >
+    🔒 Cambiar contraseña
+  </button>
+</div>
+                
               </div>
             </div>
           )}
